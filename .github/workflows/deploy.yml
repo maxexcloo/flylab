@@ -71,7 +71,7 @@ jobs:
     if: needs.select.outputs.services != '[]'
     name: ${{ needs.select.outputs.action }} ${{ matrix.service }}
     needs: select
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, fly]
     strategy:
       fail-fast: false
       max-parallel: 1
