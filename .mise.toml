@@ -15,7 +15,7 @@ run = "prek run --all-files"
 description = "Remove rendered artifacts, caches, and bytecode"
 run = """
 find . -path ./.git -prune -o \
-  -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
+  -type d \\( -name __pycache__ -o -name .render -o -name .ruff_cache \\) \
   -prune -exec rm -rf -- {} +
 find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
 """
@@ -27,10 +27,6 @@ prettier --write .
 ruff check --fix --select I .
 ruff format .
 """
-
-[tasks.render]
-description = "Render deployment configuration"
-run = "bash .github/scripts/render.sh"
 
 [tasks.setup]
 description = "Install Git hooks"

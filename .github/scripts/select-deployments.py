@@ -1,10 +1,13 @@
 import json
 import os
+from pathlib import Path
 
 
 def main():
-    action = os.environ["ACTION"]
-    selection = os.environ.get("SELECTION", "")
+    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+    inputs = event.get("inputs", {})
+    action = inputs.get("action", "deploy")
+    selection = inputs.get("deployment", "")
 
     if action not in {"delete", "deploy"}:
         raise SystemExit(f"Invalid action: {action}")
@@ -29,9 +32,10 @@ def main():
         else:
             deployments = catalog["deployments"]
 
+    deployments = [dict(deployment, action=action) for deployment in deployments]
+
     with open(os.environ["GITHUB_OUTPUT"], "a") as output_file:
         output_file.write(
-            f"action={action}\n"
             f"deployments={json.dumps(deployments, separators=(',', ':'))}\n"
         )
 

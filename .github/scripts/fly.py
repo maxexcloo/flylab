@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -28,14 +29,13 @@ def delete(app):
 
 def deploy(deployment):
     app = deployment["app"]
-    deployment_path = Path(".render") / deployment["service"]
-    os.environ["OP_SERVICE_ACCOUNT_TOKEN"]
+    deployment_path = render(deployment["service"])
 
     if not app_exists(app):
         subprocess.run(["flyctl", "apps", "create", app], check=True)
 
-    reconcile_secrets(app, deployment_path)
     reconcile_certificates(app, deployment["certificates"])
+    reconcile_secrets(app, deployment_path)
     subprocess.run(
         ["flyctl", "deploy", "--app", app, "--config", "fly.toml"],
         check=True,
@@ -113,10 +113,34 @@ def reconcile_secrets(app, deployment_path):
         )
 
 
+def render(service):
+    service_path = Path(service)
+    if not service_path.is_dir():
+        raise FileNotFoundError(f"Service not found: {service}")
+
+    render_path = Path(".render") / service
+    if render_path.exists():
+        shutil.rmtree(render_path)
+    shutil.copytree(
+        service_path,
+        render_path,
+        ignore=shutil.ignore_patterns("*.tmpl"),
+    )
+
+    for template in sorted(service_path.rglob("*.tmpl")):
+        output_path = render_path / template.relative_to(service_path).with_suffix("")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["gomplate", "--file", template, "--out", output_path],
+            check=True,
+        )
+
+    return render_path
+
+
 def main():
-    action = os.environ["ACTION"]
     deployment = json.loads(os.environ["DEPLOYMENT"])
-    os.environ["FLY_API_TOKEN"]
+    action = deployment["action"]
 
     if action == "delete":
         delete(deployment["app"])
