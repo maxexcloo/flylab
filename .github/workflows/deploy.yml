@@ -121,9 +121,7 @@ jobs:
           set -euo pipefail
           secrets_file=$(mktemp)
           trap 'rm -f "$secrets_file"' EXIT
-          op inject \
-            --in-file "$DEPLOYMENT_PATH/secrets.env.tpl" \
-            --out-file "$secrets_file"
+          op inject --in-file "$DEPLOYMENT_PATH/secrets.env.tpl" > "$secrets_file"
 
           cd "$DEPLOYMENT_PATH"
 
