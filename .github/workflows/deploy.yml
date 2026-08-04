@@ -71,7 +71,7 @@ jobs:
     if: needs.select.outputs.services != '[]'
     name: ${{ needs.select.outputs.action }} ${{ matrix.service }}
     needs: select
-    runs-on: [self-hosted, fly]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -88,6 +88,9 @@ jobs:
         uses: actions/checkout@v7
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@1
+      - name: Setup 1Password CLI
+        if: needs.select.outputs.action == 'deploy'
+        uses: 1password/install-cli-action@v2
       - name: Delete
         if: needs.select.outputs.action == 'delete'
         shell: bash
@@ -101,8 +104,7 @@ jobs:
       - name: Deploy
         if: needs.select.outputs.action == 'deploy'
         env:
-          OP_CONNECT_TOKEN: ${{ secrets.OP_CONNECT_TOKEN }}
-          OP_CONNECT_URL: ${{ secrets.OP_CONNECT_URL }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
