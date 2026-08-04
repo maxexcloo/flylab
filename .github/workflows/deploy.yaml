@@ -70,7 +70,6 @@ jobs:
       - name: Setup tools
         uses: jdx/mise-action@v4
         with:
-          install_args: 1password-cli flyctl gomplate uv
           version: 2026.8.1
       - name: Delete
         if: matrix.deployment.action == 'delete'
