@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   prepare:
-    name: Check and Select
+    name: Check & Select
     runs-on: ubuntu-latest
     outputs:
       deployments: ${{ steps.select.outputs.deployments }}
@@ -48,7 +48,7 @@ jobs:
         run: uv run --no-project .github/scripts/select-deployments.py
 
   run:
-    name: ${{ matrix.deployment.action }} ${{ matrix.deployment.key }}
+    name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.key }}
     needs: prepare
     if: needs.prepare.outputs.deployments != '[]'
     runs-on: ubuntu-latest
