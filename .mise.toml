@@ -1,5 +1,7 @@
 [tools]
+1password-cli = "2.38.1"
 actionlint = "1.7.12"
+flyctl = "0.4.77"
 gomplate = "5.2.0"
 hadolint = "2.15.1"
 prek = "0.4.12"
