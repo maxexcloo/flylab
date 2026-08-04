@@ -76,15 +76,15 @@ def reconcile_certificates(app, desired):
 
 
 def reconcile_secrets(app, deployment_path):
-    secrets_path = deployment_path / "secrets.env"
-    lines = [line for line in secrets_path.read_text().splitlines() if line]
+    env_path = deployment_path / ".env"
+    lines = [line for line in env_path.read_text().splitlines() if line]
     matches = [SECRET_PATTERN.fullmatch(line) for line in lines]
     if not all(matches):
-        raise ValueError("Invalid secrets.env")
+        raise ValueError("Invalid .env")
 
     desired = {match.group(1) for match in matches}
     if len(desired) != len(matches):
-        raise ValueError("Duplicate secret in secrets.env")
+        raise ValueError("Duplicate secret in .env")
 
     current = {
         name
@@ -99,7 +99,7 @@ def reconcile_secrets(app, deployment_path):
         )
 
     injected = subprocess.run(
-        ["op", "inject", "--in-file", secrets_path],
+        ["op", "inject", "--in-file", env_path],
         check=True,
         stdout=subprocess.PIPE,
         text=True,
