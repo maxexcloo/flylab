@@ -17,7 +17,6 @@ alerting:
 
 endpoints:
 {{ range $service := $catalog.services -}}
-{{ if $service.features.monitoring -}}
 {{ $key := $service.key | strings.ToUpper | strings.ReplaceAll "-" "_" -}}
 {{ range $url := $service.urls }}
   - group: " {{ $url.host }}"
@@ -41,7 +40,6 @@ endpoints:
 {{ end }}
       X-Gatus-Token: "{{ printf "${MONITORING_TOKEN_%s}" $key }}"
 {{ end -}}
-{{ end }}
 {{ end }}
 {{ $gatus.probes | toYAML | strings.Indent 2 }}
 ui:

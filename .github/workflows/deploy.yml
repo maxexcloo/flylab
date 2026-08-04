@@ -2,6 +2,8 @@ name: Deploy
 
 on:
   push:
+    branches:
+      - main
     paths-ignore:
       - README.md
       - renovate.json
@@ -30,6 +32,12 @@ jobs:
       action: ${{ steps.select.outputs.action }}
       deployments: ${{ steps.select.outputs.deployments }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v9
       - name: Select deployments
         id: select
         env:
@@ -37,40 +45,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
           SELECTION: ${{ inputs.deployment }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "$ACTION" == deploy ]]; then
-            jq -e '.version == 1' <<< "$HOMELAB_CATALOG" >/dev/null
-          fi
-
-          if [[ "$EVENT_NAME" == workflow_dispatch && -n "$SELECTION" ]]; then
-            [[ "$SELECTION" =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
-              echo "Invalid deployment: $SELECTION" >&2
-              exit 1
-            }
-            if [[ "$ACTION" == delete ]]; then
-              deployments=$(jq -cn --arg app "$SELECTION" '[{app: $app, key: $app}]')
-            else
-              deployments=$(
-                jq -cer --arg deployment "$SELECTION" '
-                  [.deployments[] | select(.target == "fly" and (.key == $deployment or .app == $deployment))] |
-                  if length == 1 then . else error("Expected one matching Fly deployment") end
-                ' <<< "$HOMELAB_CATALOG"
-              )
-            fi
-          elif [[ "$ACTION" == delete ]]; then
-            echo "A deployment is required for deletion" >&2
-            exit 1
-          else
-            deployments=$(
-              jq -cer '[.deployments[] | select(.target == "fly")]' <<< "$HOMELAB_CATALOG"
-            )
-          fi
-
-          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
-          echo "deployments=$deployments" >> "$GITHUB_OUTPUT"
+        run: uv run --no-project .github/scripts/select-deployments.py
 
   deploy:
     if: needs.select.outputs.deployments != '[]'
@@ -79,7 +54,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         deployment: ${{ fromJSON(needs.select.outputs.deployments) }}
     concurrency:
@@ -94,92 +68,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Setup tools
         if: needs.select.outputs.action == 'deploy'
         uses: jdx/mise-action@v4
+        with:
+          install_args: gomplate uv
+          version: 2026.8.1
+      - name: Setup uv
+        if: needs.select.outputs.action == 'delete'
+        uses: astral-sh/setup-uv@v9
       - name: Render configurations
         if: needs.select.outputs.action == 'deploy'
         env:
           HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
         run: mise run render
       - name: Setup flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@1
+        uses: superfly/flyctl-actions/setup-flyctl@1.5
       - name: Setup 1Password CLI
         if: needs.select.outputs.action == 'deploy'
-        uses: 1password/install-cli-action@v2
+        uses: 1password/install-cli-action@v4
       - name: Delete
         if: needs.select.outputs.action == 'delete'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if flyctl apps info "$APP" >/dev/null 2>&1; then
-            flyctl apps destroy "$APP" --yes
-          else
-            echo "$APP does not exist"
-          fi
+        run: uv run --no-project .github/scripts/delete.py
       - name: Deploy
         if: needs.select.outputs.action == 'deploy'
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          secrets_file=$(mktemp)
-          trap 'rm -f "$secrets_file"' EXIT
-          op inject --in-file "$DEPLOYMENT_PATH/secrets.env" > "$secrets_file"
-
-          cd "$DEPLOYMENT_PATH"
-
-          if ! flyctl apps info "$APP" >/dev/null 2>&1; then
-            flyctl apps create "$APP"
-          fi
-
-          mapfile -t current_secrets < <(
-            flyctl secrets list --app "$APP" --json |
-              jq -r '.[] | .Name // .name' |
-              sort
-          )
-          mapfile -t desired_secrets < <(
-            sed -E '/^[A-Z0-9_]+=/!d; s/=.*//' secrets.env | sort -u
-          )
-          mapfile -t stale_secrets < <(
-            comm -23 \
-              <(printf '%s\n' "${current_secrets[@]}" | sed '/^$/d') \
-              <(printf '%s\n' "${desired_secrets[@]}" | sed '/^$/d')
-          )
-          if (( ${#stale_secrets[@]} > 0 )); then
-            flyctl secrets unset "${stale_secrets[@]}" --app "$APP" --stage
-          fi
-          if [[ -s "$secrets_file" ]]; then
-            flyctl secrets import --app "$APP" --stage < "$secrets_file"
-          fi
-
-          mapfile -t current_certs < <(
-            flyctl certs list --app "$APP" --json |
-              jq -r '.[] | .Hostname // .hostname' |
-              sort
-          )
-          mapfile -t desired_certs < <(
-            if [[ -f .certs ]]; then
-              sed '/^$/d' .certs | sort -u
-            fi
-          )
-          while IFS= read -r hostname; do
-            [[ -n "$hostname" ]] && flyctl certs remove "$hostname" --app "$APP" --yes
-          done < <(
-            comm -23 \
-              <(printf '%s\n' "${current_certs[@]}" | sed '/^$/d') \
-              <(printf '%s\n' "${desired_certs[@]}" | sed '/^$/d')
-          )
-          while IFS= read -r hostname; do
-            [[ -n "$hostname" ]] && flyctl certs add "$hostname" --app "$APP"
-          done < <(
-            comm -13 \
-              <(printf '%s\n' "${current_certs[@]}" | sed '/^$/d') \
-              <(printf '%s\n' "${desired_certs[@]}" | sed '/^$/d')
-          )
-
-          flyctl deploy --app "$APP" --config fly.toml
-          if [[ -s .machine-count ]]; then
-            flyctl scale count "$(< .machine-count)" --app "$APP"
-          fi
+        run: uv run --no-project .github/scripts/deploy.py

@@ -1,30 +1,37 @@
 [tools]
 actionlint = "1.7.12"
 gomplate = "5.2.0"
+hadolint = "2.15.1"
+prek = "0.4.12"
+prettier = "3.9.6"
+ruff = "0.16.1"
+uv = "0.12.1"
 
 [tasks.check]
-description = "Render configuration and lint workflows"
-depends = ["render"]
-run = "actionlint .github/workflows/*.yml"
+description = "Run all repository checks"
+run = "prek run --all-files"
+
+[tasks.cleanup]
+description = "Remove rendered artifacts, caches, and bytecode"
+run = """
+find . -path ./.git -prune -o \
+  -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
+  -prune -exec rm -rf -- {} +
+find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
+"""
+
+[tasks.fmt]
+description = "Format all files"
+run = """
+prettier --write .
+ruff check --fix --select I .
+ruff format .
+"""
 
 [tasks.render]
 description = "Render deployment configuration"
-run = """
-: "${SERVICE_PATH:?SERVICE_PATH is required}"
-case "$SERVICE_PATH" in
-  ""|-*|*[!a-z0-9-]*) exit 1 ;;
-esac
+run = "bash .github/scripts/render.sh"
 
-render_path=".render/$SERVICE_PATH"
-mkdir -p "$render_path"
-find "$render_path" -mindepth 1 -delete
-rsync -a --exclude '*.tmpl' "$SERVICE_PATH/" "$render_path/"
-
-find "$SERVICE_PATH" -type f -name '*.tmpl' -print |
-  while IFS= read -r template; do
-    relative_path=${template#"$SERVICE_PATH/"}
-    output_path="$render_path/${relative_path%.tmpl}"
-    mkdir -p "${output_path%/*}"
-    gomplate --file "$template" --out "$output_path"
-  done
-"""
+[tasks.setup]
+description = "Install Git hooks"
+run = "prek install"
