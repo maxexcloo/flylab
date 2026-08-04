@@ -110,7 +110,7 @@ jobs:
           set -euo pipefail
           secrets_file=$(mktemp)
           trap 'rm -f "$secrets_file"' EXIT
-          scripts/resolve-secrets "$SERVICE/secrets.json" > "$secrets_file"
+          .github/scripts/resolve-secrets "$SERVICE/secrets.json" > "$secrets_file"
 
           cd "$SERVICE"
 
