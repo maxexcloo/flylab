@@ -17,20 +17,20 @@ def main():
             raise SystemExit("An app is required for deletion")
         deployments = [{"app": selection, "key": selection}]
     else:
-        catalog = json.loads(os.environ["HOMELAB_CATALOG"])
-        if catalog.get("repository") != "fly" or catalog.get("version") != 2:
-            raise SystemExit("Expected Fly catalog version 2")
+        config = json.loads(os.environ["CONFIG"])
+        if config.get("repository") != "fly" or config.get("version") != 2:
+            raise SystemExit("Expected Fly config version 2")
 
         if selection:
             deployments = [
                 deployment
-                for deployment in catalog["deployments"]
+                for deployment in config["deployments"]
                 if selection in {deployment["key"], deployment["app"]}
             ]
             if len(deployments) != 1:
                 raise SystemExit("Expected one matching Fly deployment")
         else:
-            deployments = catalog["deployments"]
+            deployments = config["deployments"]
 
     deployments = [dict(deployment, action=action) for deployment in deployments]
 

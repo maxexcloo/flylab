@@ -44,7 +44,7 @@ jobs:
       - name: Select deployments
         id: select
         env:
-          HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
+          CONFIG: ${{ vars.CONFIG }}
         run: uv run --no-project .github/scripts/select-deployments.py
 
   run:
@@ -83,6 +83,6 @@ jobs:
       - name: Deploy
         if: matrix.deployment.action == 'deploy'
         env:
-          HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
+          CONFIG: ${{ vars.CONFIG }}
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         run: uv run --no-project .github/scripts/fly.py
