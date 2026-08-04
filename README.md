@@ -1,9 +1,10 @@
 # Homelab Fly.io
 
-Fly.io applications are deployed from this repository. Each top-level
-directory containing `fly.toml` is one application.
+Fly.io service implementations and deployment templates live in this
+repository. The homelab catalog supplies the non-secret deployment instances
+and shared service inventory.
 
-Pushes deploy every application. The manual workflow can deploy one application
-or explicitly delete one. Deployments resolve the fields declared in each
-application's `secrets.json` through a read-only 1Password service account
-limited to the Services vault, then send them directly to Fly.io.
+Pushes deploy every catalogued Fly instance. The manual workflow can deploy one
+instance or explicitly delete an app. Deployments render the selected service,
+resolve its `op://` references through a read-only 1Password service account,
+and send secrets directly to Fly.io.

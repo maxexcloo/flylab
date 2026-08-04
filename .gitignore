@@ -1,0 +1,4 @@
+gatus/.certs
+gatus/.machine-count
+gatus/app/config/config.yaml
+gatus/fly.toml

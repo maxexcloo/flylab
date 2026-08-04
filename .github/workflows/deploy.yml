@@ -28,15 +28,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       action: ${{ steps.select.outputs.action }}
-      services: ${{ steps.select.outputs.services }}
+      deployments: ${{ steps.select.outputs.deployments }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Select Services
+      - name: Select deployments
         id: select
         env:
           ACTION: ${{ inputs.action || 'deploy' }}
           EVENT_NAME: ${{ github.event_name }}
+          HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
           SERVICE: ${{ inputs.service }}
         shell: bash
         run: |
@@ -47,45 +46,57 @@ jobs:
               echo "Invalid service: $SERVICE" >&2
               exit 1
             }
-            if [[ "$ACTION" == deploy && ! -f "$SERVICE/fly.toml" ]]; then
-              echo "No deployment found for service: $SERVICE" >&2
-              exit 1
+            if [[ "$ACTION" == delete ]]; then
+              deployments=$(jq -cn --arg app "$SERVICE" '[{app: $app, key: $app}]')
+            else
+              deployments=$(
+                jq -cer --arg service "$SERVICE" '
+                  [.deployments[] | select(.target == "fly" and (.key == $service or .app == $service))] |
+                  if length == 1 then . else error("Expected one matching Fly deployment") end
+                ' <<< "$HOMELAB_CATALOG"
+              )
             fi
-            services=$(jq -cn --arg service "$SERVICE" '[$service]')
           elif [[ "$ACTION" == delete ]]; then
             echo "A service is required for deletion" >&2
             exit 1
           else
-            services=$(
-              find . -mindepth 2 -maxdepth 2 -name fly.toml -print |
-                sed -E 's#^\./##; s#/fly\.toml$##' |
-                sort |
-                jq -Rsc 'split("\n") | map(select(length > 0))'
+            deployments=$(
+              jq -cer '[.deployments[] | select(.target == "fly")]' <<< "$HOMELAB_CATALOG"
             )
           fi
 
           echo "action=$ACTION" >> "$GITHUB_OUTPUT"
-          echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "deployments=$deployments" >> "$GITHUB_OUTPUT"
 
   deploy:
-    if: needs.select.outputs.services != '[]'
-    name: ${{ needs.select.outputs.action }} ${{ matrix.service }}
+    if: needs.select.outputs.deployments != '[]'
+    name: ${{ needs.select.outputs.action }} ${{ matrix.deployment.key }}
     needs: select
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        service: ${{ fromJSON(needs.select.outputs.services) }}
+        deployment: ${{ fromJSON(needs.select.outputs.deployments) }}
     concurrency:
       cancel-in-progress: false
-      group: fly-${{ matrix.service }}
+      group: fly-${{ matrix.deployment.app }}
     env:
+      APP: ${{ matrix.deployment.app }}
+      DEPLOYMENT: ${{ toJSON(matrix.deployment) }}
+      DEPLOYMENT_PATH: ${{ matrix.deployment.service }}
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      SERVICE: ${{ matrix.service }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Setup tools
+        if: needs.select.outputs.action == 'deploy'
+        uses: jdx/mise-action@v4
+      - name: Render configurations
+        if: needs.select.outputs.action == 'deploy'
+        env:
+          HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
+        run: mise run render
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@1
       - name: Setup 1Password CLI
@@ -96,10 +107,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if flyctl apps info "$SERVICE" >/dev/null 2>&1; then
-            flyctl apps destroy "$SERVICE" --yes
+          if flyctl apps info "$APP" >/dev/null 2>&1; then
+            flyctl apps destroy "$APP" --yes
           else
-            echo "$SERVICE does not exist"
+            echo "$APP does not exist"
           fi
       - name: Deploy
         if: needs.select.outputs.action == 'deploy'
@@ -110,21 +121,23 @@ jobs:
           set -euo pipefail
           secrets_file=$(mktemp)
           trap 'rm -f "$secrets_file"' EXIT
-          .github/scripts/resolve-secrets "$SERVICE/secrets.json" > "$secrets_file"
+          op inject \
+            --in-file "$DEPLOYMENT_PATH/secrets.env.tpl" \
+            --out-file "$secrets_file"
 
-          cd "$SERVICE"
+          cd "$DEPLOYMENT_PATH"
 
-          if ! flyctl apps info "$SERVICE" >/dev/null 2>&1; then
-            flyctl apps create "$SERVICE"
+          if ! flyctl apps info "$APP" >/dev/null 2>&1; then
+            flyctl apps create "$APP"
           fi
 
           mapfile -t current_secrets < <(
-            flyctl secrets list --app "$SERVICE" --json |
+            flyctl secrets list --app "$APP" --json |
               jq -r '.[] | .Name // .name' |
               sort
           )
           mapfile -t desired_secrets < <(
-            jq -r '.secrets | keys[]' secrets.json
+            sed -E '/^[A-Z0-9_]+=/!d; s/=.*//' secrets.env.tpl | sort -u
           )
           mapfile -t stale_secrets < <(
             comm -23 \
@@ -132,14 +145,14 @@ jobs:
               <(printf '%s\n' "${desired_secrets[@]}" | sed '/^$/d')
           )
           if (( ${#stale_secrets[@]} > 0 )); then
-            flyctl secrets unset "${stale_secrets[@]}" --app "$SERVICE" --stage
+            flyctl secrets unset "${stale_secrets[@]}" --app "$APP" --stage
           fi
           if [[ -s "$secrets_file" ]]; then
-            flyctl secrets import --app "$SERVICE" --stage < "$secrets_file"
+            flyctl secrets import --app "$APP" --stage < "$secrets_file"
           fi
 
           mapfile -t current_certs < <(
-            flyctl certs list --app "$SERVICE" --json |
+            flyctl certs list --app "$APP" --json |
               jq -r '.[] | .Hostname // .hostname' |
               sort
           )
@@ -149,21 +162,21 @@ jobs:
             fi
           )
           while IFS= read -r hostname; do
-            [[ -n "$hostname" ]] && flyctl certs remove "$hostname" --app "$SERVICE" --yes
+            [[ -n "$hostname" ]] && flyctl certs remove "$hostname" --app "$APP" --yes
           done < <(
             comm -23 \
               <(printf '%s\n' "${current_certs[@]}" | sed '/^$/d') \
               <(printf '%s\n' "${desired_certs[@]}" | sed '/^$/d')
           )
           while IFS= read -r hostname; do
-            [[ -n "$hostname" ]] && flyctl certs add "$hostname" --app "$SERVICE"
+            [[ -n "$hostname" ]] && flyctl certs add "$hostname" --app "$APP"
           done < <(
             comm -13 \
               <(printf '%s\n' "${current_certs[@]}" | sed '/^$/d') \
               <(printf '%s\n' "${desired_certs[@]}" | sed '/^$/d')
           )
 
-          flyctl deploy --app "$SERVICE" --config fly.toml
+          flyctl deploy --app "$APP" --config fly.toml
           if [[ -s .machine-count ]]; then
-            flyctl scale count "$(< .machine-count)" --app "$SERVICE"
+            flyctl scale count "$(< .machine-count)" --app "$APP"
           fi

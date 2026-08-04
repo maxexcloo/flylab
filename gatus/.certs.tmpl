@@ -1,0 +1,5 @@
+{{- defineDatasource "deployment" "env:///DEPLOYMENT?type=application/json" -}}
+{{- $deployment := ds "deployment" -}}
+{{ range $deployment.certificates -}}
+{{ . }}
+{{ end -}}

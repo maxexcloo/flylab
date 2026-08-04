@@ -1,0 +1,16 @@
+{{- defineDatasource "deployment" "env:///DEPLOYMENT?type=application/json" -}}
+{{- $deployment := ds "deployment" -}}
+app = "{{ $deployment.app }}"
+primary_region = "{{ $deployment.region }}"
+
+[build]
+{{ if eq $deployment.image "" }}dockerfile = "Dockerfile"{{ else }}image = "{{ $deployment.image }}"{{ end }}
+
+[http_service]
+force_https = {{ $deployment.force_https }}
+internal_port = {{ $deployment.backend_port }}
+
+[[vm]]
+cpu_kind = "{{ $deployment.cpu_kind }}"
+cpus = {{ $deployment.cpus }}
+memory_mb = {{ $deployment.memory_mb }}

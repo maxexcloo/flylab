@@ -1,0 +1,18 @@
+[tools]
+actionlint = "1.7.12"
+gomplate = "5.2.0"
+
+[tasks.check]
+description = "Render configuration and lint workflows"
+depends = ["render"]
+run = "actionlint .github/workflows/*.yml"
+
+[tasks.render]
+description = "Render deployment configuration"
+run = """
+render_root=${DEPLOYMENT_PATH:-.}
+find "$render_root" -type f -name '*.tmpl' -print0 |
+  while IFS= read -r -d '' template; do
+    gomplate --file "$template" --out "${template%.tmpl}"
+  done
+"""

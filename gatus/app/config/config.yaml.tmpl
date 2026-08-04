@@ -1,0 +1,49 @@
+{{- defineDatasource "gatus" "env:///HOMELAB_CATALOG?type=application/json" -}}
+{{- $gatus := (ds "gatus").gatus -}}
+alerting:
+  email:
+    from: {{ $gatus.mail.from }}
+    host: {{ $gatus.mail.host }}
+    password: ${{ "{" }}MAIL_PASSWORD}
+    port: {{ $gatus.mail.port }}
+    to: {{ $gatus.mail.to }}
+    username: {{ $gatus.mail.username }}
+    default-alert:
+      description: {{ (index $gatus.mail "default-alert").description }}
+      failure-threshold: {{ index (index $gatus.mail "default-alert") "failure-threshold" }}
+      send-on-resolved: {{ index (index $gatus.mail "default-alert") "send-on-resolved" }}
+      success-threshold: {{ index (index $gatus.mail "default-alert") "success-threshold" }}
+
+endpoints:
+{{ range $service := $gatus.services -}}
+{{ range $url := $service.urls }}
+  - group: " {{ $url.host }}"
+    name: "{{ $service.name }}"
+    url: "{{ $url.href }}"
+{{ if not (and (has $service "alerts") (eq $service.alerts false)) }}
+    alerts:
+      - type: email
+{{ end }}
+    conditions:
+      - "[CERTIFICATE_EXPIRATION] > 168h"
+      - "[RESPONSE_TIME] < 5000"
+{{ if has $service "basic" }}
+      - "[STATUS] == 200"
+{{ else }}
+      - "[STATUS] == any(200, 401)"
+{{ end }}
+    headers:
+{{ if has $service "basic" }}
+      Authorization: "Basic {{ printf "${%s}" $service.basic }}"
+{{ end }}
+      X-Gatus-Token: "{{ printf "${%s}" $service.token }}"
+{{ end -}}
+{{ end }}
+{{ $gatus.probes | toYAML | strings.Indent 2 }}
+ui:
+  dashboard-heading: {{ index $gatus.ui "dashboard-heading" }}
+  dashboard-subheading: {{ index $gatus.ui "dashboard-subheading" }}
+  default-sort-by: {{ index $gatus.ui "default-sort-by" }}
+  description: {{ $gatus.ui.description }}
+  header: {{ $gatus.ui.header }}
+  title: {{ $gatus.ui.title }}
