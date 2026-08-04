@@ -83,7 +83,6 @@ jobs:
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       SERVICE: ${{ matrix.service }}
-      SOPS_AGE_KEY: ${{ secrets.AGE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -99,29 +98,18 @@ jobs:
           else
             echo "$SERVICE does not exist"
           fi
-      - name: Setup sops
-        if: needs.select.outputs.action == 'deploy'
-        uses: nhedger/setup-sops@v3
-      - name: Decrypt
-        if: needs.select.outputs.action == 'deploy'
-        shell: bash
-        run: |
-          set -euo pipefail
-          while IFS= read -r -d '' file; do
-            grep -Eq 'BEGIN AGE ENCRYPTED FILE|ENC\[AES256_GCM' "$file" || continue
-            output=$(mktemp "${file}.XXXXXX")
-            if jq -e 'type == "object" and (keys | sort) == ["data", "sops"]' "$file" >/dev/null 2>&1; then
-              sops --decrypt --input-type json --output-type binary "$file" > "$output"
-            else
-              sops --decrypt "$file" > "$output"
-            fi
-            mv "$output" "$file"
-          done < <(find "$SERVICE" -type f -print0)
       - name: Deploy
         if: needs.select.outputs.action == 'deploy'
+        env:
+          OP_CONNECT_TOKEN: ${{ secrets.OP_CONNECT_TOKEN }}
+          OP_CONNECT_URL: ${{ secrets.OP_CONNECT_URL }}
         shell: bash
         run: |
           set -euo pipefail
+          secrets_file=$(mktemp)
+          trap 'rm -f "$secrets_file"' EXIT
+          scripts/resolve-secrets "$SERVICE/secrets.json" > "$secrets_file"
+
           cd "$SERVICE"
 
           if ! flyctl apps info "$SERVICE" >/dev/null 2>&1; then
@@ -134,9 +122,7 @@ jobs:
               sort
           )
           mapfile -t desired_secrets < <(
-            if [[ -f .env ]]; then
-              sed -E '/^($|sops_)/d; s/=.*$//' .env | sort -u
-            fi
+            jq -r '.secrets | keys[]' secrets.json
           )
           mapfile -t stale_secrets < <(
             comm -23 \
@@ -146,9 +132,8 @@ jobs:
           if (( ${#stale_secrets[@]} > 0 )); then
             flyctl secrets unset "${stale_secrets[@]}" --app "$SERVICE" --stage
           fi
-          if [[ -s .env ]]; then
-            sed -E '/^($|sops_)/d' .env |
-              flyctl secrets import --app "$SERVICE" --stage
+          if [[ -s "$secrets_file" ]]; then
+            flyctl secrets import --app "$SERVICE" --stage < "$secrets_file"
           fi
 
           mapfile -t current_certs < <(

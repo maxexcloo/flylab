@@ -1,14 +1,1 @@
-{
-	"data": "ENC[AES256_GCM,data:V37UoCakB6eospY6sMtRYcXa,iv:ZH6o0Ysy5hsQL0Q0Lc3RPwXq5OX6mNjYLawFroF8qx0=,tag:ij2Rd9weYZ3/W70ZhPBE+Q==,type:str]",
-	"sops": {
-		"age": [
-			{
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAza0Z1UWFrQTdhSi9lV2ZP\nSFdjWG1Nc093aXo2MXZSWXp4WThxNTNJZmhnCmZFNndyL2JRZzF1WnhnT2FWWDNE\ndVNLMVM2cmJueHRTWEZUOEFiVVJOL0UKLS0tIGxsK1M5WHJlUDAxL210VVJHTlpz\nNTR0YWZRclBkUS9qeVF3VWV3OEh5LzQKZKI+lgSVIChGG6+20T30d8urOzYlQgJy\nokdgR/MTkuKqvIx/GwMaZgWZeVmxaXiq4JL53Ww3n0OuiUI/NGUNoQ==\n-----END AGE ENCRYPTED FILE-----\n",
-				"recipient": "age1cnktwwj4lq4lm5qa3vxn2ft5n38h557smr2f58t9vz4zum5w0udqzzle6c"
-			}
-		],
-		"lastmodified": "2026-08-03T23:53:09Z",
-		"mac": "ENC[AES256_GCM,data:TH7H1lr3RXU+XdCmDCLYI81lfLCL8XH9yafPxpnOgzh9XtH4PGrg28XZsecKFpbpG1/2MCw98Rp6k2EYx6gzEKyR4PMjpdYkwZKQ4ZC46ZUAFCmDEBPpsjzyNjSDggtnO9qMbStTAtYrJTjeNRlFsm6NZpId2dbIc/RzK26r3DE=,iv:d2lZpSUqPaghws+4uZ+H3UAUVgaBhEJqGj6iUNLg1YU=,tag:+IYW9odoVLz3cgGiOS7PAw==,type:str]",
-		"version": "3.13.3"
-	}
-}
+status.excloo.com
