@@ -1,3 +1,8 @@
-# Homelab Fly.io configuration
+# Homelab Fly.io
 
-Homelab Fly.io configuration (SOPS-encrypted), generated and managed by the homelab OpenTofu repository.
+Fly.io applications are deployed from this repository. Each top-level
+directory containing `fly.toml` is one application.
+
+Pushes deploy every application. The manual workflow can deploy one application
+or explicitly delete one. Secrets remain SOPS-encrypted in Git and are decrypted
+only on the deployment runner.

@@ -2,52 +2,87 @@ name: Deploy
 
 on:
   push:
-    paths:
-      - .github/deploy-request.json
+    paths-ignore:
+      - README.md
+      - renovate.json
   workflow_dispatch:
     inputs:
+      action:
+        description: Action
+        options:
+          - deploy
+          - delete
+        default: deploy
+        type: choice
       service:
-        description: "Service to deploy or leave empty for all"
-
-concurrency:
-  cancel-in-progress: false
-  group: deploy
+        description: Service name; required for deletion, optional for deployment
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  deployments:
-    name: Select Deployments
+  select:
+    name: Select Services
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.deployments.outputs.deployments }}
+      action: ${{ steps.select.outputs.action }}
+      services: ${{ steps.select.outputs.services }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Select Deployments
-        id: deployments
+      - name: Select Services
+        id: select
         env:
-          BEFORE: ${{ github.event.before }}
+          ACTION: ${{ inputs.action || 'deploy' }}
           EVENT_NAME: ${{ github.event_name }}
-          INPUT_SERVICE: ${{ inputs.service }}
-        run: python3 .github/scripts/select-deployments.py
+          SERVICE: ${{ inputs.service }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == workflow_dispatch && -n "$SERVICE" ]]; then
+            [[ "$SERVICE" =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
+              echo "Invalid service: $SERVICE" >&2
+              exit 1
+            }
+            if [[ "$ACTION" == deploy && ! -f "$SERVICE/fly.toml" ]]; then
+              echo "No deployment found for service: $SERVICE" >&2
+              exit 1
+            fi
+            services=$(jq -cn --arg service "$SERVICE" '[$service]')
+          elif [[ "$ACTION" == delete ]]; then
+            echo "A service is required for deletion" >&2
+            exit 1
+          else
+            services=$(
+              find . -mindepth 2 -maxdepth 2 -name fly.toml -print |
+                sed -E 's#^\./##; s#/fly\.toml$##' |
+                sort |
+                jq -Rsc 'split("\n") | map(select(length > 0))'
+            )
+          fi
+
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
 
   deploy:
-    if: needs.deployments.outputs.matrix != '[]'
-    name: ${{ matrix.deployment.action }} ${{ matrix.deployment.service }}
-    needs: [deployments]
+    if: needs.select.outputs.services != '[]'
+    name: ${{ needs.select.outputs.action }} ${{ matrix.service }}
+    needs: select
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        deployment: ${{ fromJSON(needs.deployments.outputs.matrix) }}
+        service: ${{ fromJSON(needs.select.outputs.services) }}
+    concurrency:
+      cancel-in-progress: false
+      group: fly-${{ matrix.service }}
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      SERVICE: ${{ matrix.deployment.service }}
+      SERVICE: ${{ matrix.service }}
       SOPS_AGE_KEY: ${{ secrets.AGE_KEY }}
     steps:
       - name: Checkout
@@ -55,16 +90,93 @@ jobs:
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@1
       - name: Delete
-        if: matrix.deployment.action == 'delete'
-        run: python3 .github/scripts/delete.py
+        if: needs.select.outputs.action == 'delete'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if flyctl apps info "$SERVICE" >/dev/null 2>&1; then
+            flyctl apps destroy "$SERVICE" --yes
+          else
+            echo "$SERVICE does not exist"
+          fi
       - name: Setup sops
-        if: matrix.deployment.action == 'deploy'
+        if: needs.select.outputs.action == 'deploy'
         uses: nhedger/setup-sops@v3
-      - name: Decrypt Files
-        if: matrix.deployment.action == 'deploy'
-        env:
-          DECRYPT_ROOT: ${{ matrix.deployment.service }}
-        run: python3 .github/scripts/decrypt.py
+      - name: Decrypt
+        if: needs.select.outputs.action == 'deploy'
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            grep -Eq 'BEGIN AGE ENCRYPTED FILE|ENC\[AES256_GCM' "$file" || continue
+            output=$(mktemp "${file}.XXXXXX")
+            if jq -e 'type == "object" and (keys | sort) == ["data", "sops"]' "$file" >/dev/null 2>&1; then
+              sops --decrypt --input-type json --output-type binary "$file" > "$output"
+            else
+              sops --decrypt "$file" > "$output"
+            fi
+            mv "$output" "$file"
+          done < <(find "$SERVICE" -type f -print0)
       - name: Deploy
-        if: matrix.deployment.action == 'deploy'
-        run: python3 .github/scripts/deploy.py
+        if: needs.select.outputs.action == 'deploy'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$SERVICE"
+
+          if ! flyctl apps info "$SERVICE" >/dev/null 2>&1; then
+            flyctl apps create "$SERVICE"
+          fi
+
+          mapfile -t current_secrets < <(
+            flyctl secrets list --app "$SERVICE" --json |
+              jq -r '.[] | .Name // .name' |
+              sort
+          )
+          mapfile -t desired_secrets < <(
+            if [[ -f .env ]]; then
+              sed -E '/^($|sops_)/d; s/=.*$//' .env | sort -u
+            fi
+          )
+          mapfile -t stale_secrets < <(
+            comm -23 \
+              <(printf '%s\n' "${current_secrets[@]}" | sed '/^$/d') \
+              <(printf '%s\n' "${desired_secrets[@]}" | sed '/^$/d')
+          )
+          if (( ${#stale_secrets[@]} > 0 )); then
+            flyctl secrets unset "${stale_secrets[@]}" --app "$SERVICE" --stage
+          fi
+          if [[ -s .env ]]; then
+            sed -E '/^($|sops_)/d' .env |
+              flyctl secrets import --app "$SERVICE" --stage
+          fi
+
+          mapfile -t current_certs < <(
+            flyctl certs list --app "$SERVICE" --json |
+              jq -r '.[] | .Hostname // .hostname' |
+              sort
+          )
+          mapfile -t desired_certs < <(
+            if [[ -f .certs ]]; then
+              sed '/^$/d' .certs | sort -u
+            fi
+          )
+          while IFS= read -r hostname; do
+            [[ -n "$hostname" ]] && flyctl certs remove "$hostname" --app "$SERVICE" --yes
+          done < <(
+            comm -23 \
+              <(printf '%s\n' "${current_certs[@]}" | sed '/^$/d') \
+              <(printf '%s\n' "${desired_certs[@]}" | sed '/^$/d')
+          )
+          while IFS= read -r hostname; do
+            [[ -n "$hostname" ]] && flyctl certs add "$hostname" --app "$SERVICE"
+          done < <(
+            comm -13 \
+              <(printf '%s\n' "${current_certs[@]}" | sed '/^$/d') \
+              <(printf '%s\n' "${desired_certs[@]}" | sed '/^$/d')
+          )
+
+          flyctl deploy --app "$SERVICE" --config fly.toml
+          if [[ -s .machine-count ]]; then
+            flyctl scale count "$(< .machine-count)" --app "$SERVICE"
+          fi
