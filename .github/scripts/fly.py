@@ -19,6 +19,34 @@ def app_exists(app):
     )
 
 
+def delete(app):
+    if app_exists(app):
+        subprocess.run(["flyctl", "apps", "destroy", app, "--yes"], check=True)
+    else:
+        print(f"{app} does not exist")
+
+
+def deploy(deployment):
+    app = deployment["app"]
+    deployment_path = Path(".render") / deployment["service"]
+    os.environ["OP_SERVICE_ACCOUNT_TOKEN"]
+
+    if not app_exists(app):
+        subprocess.run(["flyctl", "apps", "create", app], check=True)
+
+    reconcile_secrets(app, deployment_path)
+    reconcile_certificates(app, deployment["certificates"])
+    subprocess.run(
+        ["flyctl", "deploy", "--app", app, "--config", "fly.toml"],
+        check=True,
+        cwd=deployment_path,
+    )
+    subprocess.run(
+        ["flyctl", "scale", "count", str(deployment["machine_count"]), "--app", app],
+        check=True,
+    )
+
+
 def fly_json(arguments, app):
     result = subprocess.check_output(
         ["flyctl", *arguments, "--app", app, "--json"],
@@ -86,27 +114,16 @@ def reconcile_secrets(app, deployment_path):
 
 
 def main():
+    action = os.environ["ACTION"]
     deployment = json.loads(os.environ["DEPLOYMENT"])
-    app = deployment["app"]
-    deployment_path = Path(".render") / deployment["service"]
     os.environ["FLY_API_TOKEN"]
-    os.environ["OP_SERVICE_ACCOUNT_TOKEN"]
 
-    if not app_exists(app):
-        subprocess.run(["flyctl", "apps", "create", app], check=True)
-
-    reconcile_secrets(app, deployment_path)
-    reconcile_certificates(app, deployment["certificates"])
-    subprocess.run(
-        ["flyctl", "deploy", "--app", app, "--config", "fly.toml"],
-        check=True,
-        cwd=deployment_path,
-    )
-
-    subprocess.run(
-        ["flyctl", "scale", "count", str(deployment["machine_count"]), "--app", app],
-        check=True,
-    )
+    if action == "delete":
+        delete(deployment["app"])
+    elif action == "deploy":
+        deploy(deployment)
+    else:
+        raise ValueError(f"Invalid action: {action}")
 
 
 if __name__ == "__main__":
