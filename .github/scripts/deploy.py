@@ -4,7 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
-SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=")
+SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=.*$")
 
 
 def app_exists(app):
@@ -27,17 +27,13 @@ def fly_json(arguments, app):
     return json.loads(result)
 
 
-def reconcile_certificates(app, deployment_path):
+def reconcile_certificates(app, desired):
     current = {
-        certificate.get("Hostname", certificate.get("hostname"))
+        hostname
         for certificate in fly_json(["certs", "list"], app)
+        if (hostname := certificate.get("Hostname") or certificate.get("hostname"))
     }
-    certs_file = deployment_path / ".certs"
-    desired = (
-        {line for line in certs_file.read_text().splitlines() if line}
-        if certs_file.is_file()
-        else set()
-    )
+    desired = set(desired)
 
     for hostname in sorted(current - desired):
         subprocess.run(
@@ -53,14 +49,19 @@ def reconcile_certificates(app, deployment_path):
 
 def reconcile_secrets(app, deployment_path):
     secrets_path = deployment_path / "secrets.env"
-    desired = {
-        match.group(1)
-        for line in secrets_path.read_text().splitlines()
-        if (match := SECRET_PATTERN.match(line))
-    }
+    lines = [line for line in secrets_path.read_text().splitlines() if line]
+    matches = [SECRET_PATTERN.fullmatch(line) for line in lines]
+    if not all(matches):
+        raise ValueError("Invalid secrets.env")
+
+    desired = {match.group(1) for match in matches}
+    if len(desired) != len(matches):
+        raise ValueError("Duplicate secret in secrets.env")
+
     current = {
-        secret.get("Name", secret.get("name"))
+        name
         for secret in fly_json(["secrets", "list"], app)
+        if (name := secret.get("Name") or secret.get("name"))
     }
     stale = sorted(current - desired)
     if stale:
@@ -85,8 +86,9 @@ def reconcile_secrets(app, deployment_path):
 
 
 def main():
-    app = os.environ["APP"]
-    deployment_path = Path(os.environ["DEPLOYMENT_PATH"])
+    deployment = json.loads(os.environ["DEPLOYMENT"])
+    app = deployment["app"]
+    deployment_path = Path(".render") / deployment["service"]
     os.environ["FLY_API_TOKEN"]
     os.environ["OP_SERVICE_ACCOUNT_TOKEN"]
 
@@ -94,21 +96,17 @@ def main():
         subprocess.run(["flyctl", "apps", "create", app], check=True)
 
     reconcile_secrets(app, deployment_path)
-    reconcile_certificates(app, deployment_path)
+    reconcile_certificates(app, deployment["certificates"])
     subprocess.run(
         ["flyctl", "deploy", "--app", app, "--config", "fly.toml"],
         check=True,
         cwd=deployment_path,
     )
 
-    machine_count_path = deployment_path / ".machine-count"
-    if machine_count_path.is_file():
-        machine_count = machine_count_path.read_text().strip()
-        if machine_count:
-            subprocess.run(
-                ["flyctl", "scale", "count", machine_count, "--app", app],
-                check=True,
-            )
+    subprocess.run(
+        ["flyctl", "scale", "count", str(deployment["machine_count"]), "--app", app],
+        check=True,
+    )
 
 
 if __name__ == "__main__":

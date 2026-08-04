@@ -9,15 +9,8 @@ on:
       - renovate.json
   workflow_dispatch:
     inputs:
-      action:
-        description: Action
-        options:
-          - deploy
-          - delete
-        default: deploy
-        type: choice
       deployment:
-        description: Deployment key or app name; required for deletion
+        description: Deployment key or app name; omit to deploy all
         required: false
         type: string
 
@@ -25,44 +18,43 @@ permissions:
   contents: read
 
 jobs:
-  select:
-    name: Select Deployments
+  prepare:
+    name: Check and Select
     runs-on: ubuntu-latest
     outputs:
-      action: ${{ steps.select.outputs.action }}
       deployments: ${{ steps.select.outputs.deployments }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v9
+      - name: Setup tools
+        uses: jdx/mise-action@v4
+        with:
+          version: 2026.8.1
+      - name: Run checks
+        run: mise run check
       - name: Select deployments
         id: select
         env:
-          ACTION: ${{ inputs.action || 'deploy' }}
-          EVENT_NAME: ${{ github.event_name }}
           HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
           SELECTION: ${{ inputs.deployment }}
         run: uv run --no-project .github/scripts/select-deployments.py
 
   deploy:
-    if: needs.select.outputs.deployments != '[]'
-    name: ${{ needs.select.outputs.action }} ${{ matrix.deployment.key }}
-    needs: select
+    if: needs.prepare.outputs.deployments != '[]'
+    name: Deploy ${{ matrix.deployment.key }}
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        deployment: ${{ fromJSON(needs.select.outputs.deployments) }}
+        deployment: ${{ fromJSON(needs.prepare.outputs.deployments) }}
     concurrency:
       cancel-in-progress: false
       group: fly-${{ matrix.deployment.app }}
     env:
-      APP: ${{ matrix.deployment.app }}
       DEPLOYMENT: ${{ toJSON(matrix.deployment) }}
-      DEPLOYMENT_PATH: .render/${{ matrix.deployment.service }}
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       SERVICE_PATH: ${{ matrix.deployment.service }}
     steps:
@@ -71,29 +63,19 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup tools
-        if: needs.select.outputs.action == 'deploy'
         uses: jdx/mise-action@v4
         with:
           install_args: gomplate uv
           version: 2026.8.1
-      - name: Setup uv
-        if: needs.select.outputs.action == 'delete'
-        uses: astral-sh/setup-uv@v9
-      - name: Render configurations
-        if: needs.select.outputs.action == 'deploy'
+      - name: Render configuration
         env:
           HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
         run: mise run render
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@1.5
       - name: Setup 1Password CLI
-        if: needs.select.outputs.action == 'deploy'
         uses: 1password/install-cli-action@v4
-      - name: Delete
-        if: needs.select.outputs.action == 'delete'
-        run: uv run --no-project .github/scripts/delete.py
       - name: Deploy
-        if: needs.select.outputs.action == 'deploy'
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         run: uv run --no-project .github/scripts/deploy.py
