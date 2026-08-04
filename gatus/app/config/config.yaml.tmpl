@@ -1,10 +1,11 @@
-{{- defineDatasource "gatus" "env:///HOMELAB_CATALOG?type=application/json" -}}
-{{- $gatus := (ds "gatus").gatus -}}
+{{- defineDatasource "catalog" "env:///HOMELAB_CATALOG?type=application/json" -}}
+{{- $catalog := ds "catalog" -}}
+{{- $gatus := $catalog.gatus -}}
 alerting:
   email:
     from: {{ $gatus.mail.from }}
     host: {{ $gatus.mail.host }}
-    password: ${{ "{" }}MAIL_PASSWORD}
+    password: {{ "${MAIL_PASSWORD}" }}
     port: {{ $gatus.mail.port }}
     to: {{ $gatus.mail.to }}
     username: {{ $gatus.mail.username }}
@@ -15,29 +16,32 @@ alerting:
       success-threshold: {{ index (index $gatus.mail "default-alert") "success-threshold" }}
 
 endpoints:
-{{ range $service := $gatus.services -}}
+{{ range $service := $catalog.services -}}
+{{ if $service.features.monitoring -}}
+{{ $key := $service.key | strings.ToUpper | strings.ReplaceAll "-" "_" -}}
 {{ range $url := $service.urls }}
   - group: " {{ $url.host }}"
-    name: "{{ $service.name }}"
+    name: "{{ $service.title }} ({{ $service.target }})"
     url: "{{ $url.href }}"
-{{ if not (and (has $service "alerts") (eq $service.alerts false)) }}
+{{ if $service.features.monitoring_alerts }}
     alerts:
       - type: email
 {{ end }}
     conditions:
       - "[CERTIFICATE_EXPIRATION] > 168h"
       - "[RESPONSE_TIME] < 5000"
-{{ if has $service "basic" }}
+{{ if $service.features.oidc_forward_auth }}
       - "[STATUS] == 200"
 {{ else }}
       - "[STATUS] == any(200, 401)"
 {{ end }}
     headers:
-{{ if has $service "basic" }}
-      Authorization: "Basic {{ printf "${%s}" $service.basic }}"
+{{ if $service.features.oidc_forward_auth }}
+      Authorization: "Basic {{ printf "${MONITORING_BASIC_%s}" $key }}"
 {{ end }}
-      X-Gatus-Token: "{{ printf "${%s}" $service.token }}"
+      X-Gatus-Token: "{{ printf "${MONITORING_TOKEN_%s}" $key }}"
 {{ end -}}
+{{ end }}
 {{ end }}
 {{ $gatus.probes | toYAML | strings.Indent 2 }}
 ui:

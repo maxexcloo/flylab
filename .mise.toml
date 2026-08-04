@@ -10,9 +10,19 @@ run = "actionlint .github/workflows/*.yml"
 [tasks.render]
 description = "Render deployment configuration"
 run = """
-render_root=${DEPLOYMENT_PATH:-.}
-find "$render_root" -type f -name '*.tmpl' -print0 |
+: "${SERVICE_PATH:?SERVICE_PATH is required}"
+[[ "$SERVICE_PATH" =~ ^[a-z0-9][a-z0-9-]*$ ]]
+
+render_path=".render/$SERVICE_PATH"
+mkdir -p "$render_path"
+find "$render_path" -mindepth 1 -delete
+rsync -a --exclude '*.tmpl' "$SERVICE_PATH/" "$render_path/"
+
+find "$SERVICE_PATH" -type f -name '*.tmpl' -print0 |
   while IFS= read -r -d '' template; do
-    gomplate --file "$template" --out "${template%.tmpl}"
+    relative_path=${template#"$SERVICE_PATH/"}
+    output_path="$render_path/${relative_path%.tmpl}"
+    mkdir -p "${output_path%/*}"
+    gomplate --file "$template" --out "$output_path"
   done
 """

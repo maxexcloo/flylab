@@ -14,8 +14,8 @@ on:
           - delete
         default: deploy
         type: choice
-      service:
-        description: Service name; required for deletion, optional for deployment
+      deployment:
+        description: Deployment key or app name; required for deletion
         required: false
         type: string
 
@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   select:
-    name: Select Services
+    name: Select Deployments
     runs-on: ubuntu-latest
     outputs:
       action: ${{ steps.select.outputs.action }}
@@ -36,28 +36,32 @@ jobs:
           ACTION: ${{ inputs.action || 'deploy' }}
           EVENT_NAME: ${{ github.event_name }}
           HOMELAB_CATALOG: ${{ vars.HOMELAB_CATALOG }}
-          SERVICE: ${{ inputs.service }}
+          SELECTION: ${{ inputs.deployment }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ "$EVENT_NAME" == workflow_dispatch && -n "$SERVICE" ]]; then
-            [[ "$SERVICE" =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
-              echo "Invalid service: $SERVICE" >&2
+          if [[ "$ACTION" == deploy ]]; then
+            jq -e '.version == 1' <<< "$HOMELAB_CATALOG" >/dev/null
+          fi
+
+          if [[ "$EVENT_NAME" == workflow_dispatch && -n "$SELECTION" ]]; then
+            [[ "$SELECTION" =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
+              echo "Invalid deployment: $SELECTION" >&2
               exit 1
             }
             if [[ "$ACTION" == delete ]]; then
-              deployments=$(jq -cn --arg app "$SERVICE" '[{app: $app, key: $app}]')
+              deployments=$(jq -cn --arg app "$SELECTION" '[{app: $app, key: $app}]')
             else
               deployments=$(
-                jq -cer --arg service "$SERVICE" '
-                  [.deployments[] | select(.target == "fly" and (.key == $service or .app == $service))] |
+                jq -cer --arg deployment "$SELECTION" '
+                  [.deployments[] | select(.target == "fly" and (.key == $deployment or .app == $deployment))] |
                   if length == 1 then . else error("Expected one matching Fly deployment") end
                 ' <<< "$HOMELAB_CATALOG"
               )
             fi
           elif [[ "$ACTION" == delete ]]; then
-            echo "A service is required for deletion" >&2
+            echo "A deployment is required for deletion" >&2
             exit 1
           else
             deployments=$(
@@ -84,8 +88,9 @@ jobs:
     env:
       APP: ${{ matrix.deployment.app }}
       DEPLOYMENT: ${{ toJSON(matrix.deployment) }}
-      DEPLOYMENT_PATH: ${{ matrix.deployment.service }}
+      DEPLOYMENT_PATH: .render/${{ matrix.deployment.service }}
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      SERVICE_PATH: ${{ matrix.deployment.service }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -121,7 +126,7 @@ jobs:
           set -euo pipefail
           secrets_file=$(mktemp)
           trap 'rm -f "$secrets_file"' EXIT
-          op inject --in-file "$DEPLOYMENT_PATH/secrets.env.tpl" > "$secrets_file"
+          op inject --in-file "$DEPLOYMENT_PATH/secrets.env" > "$secrets_file"
 
           cd "$DEPLOYMENT_PATH"
 
@@ -135,7 +140,7 @@ jobs:
               sort
           )
           mapfile -t desired_secrets < <(
-            sed -E '/^[A-Z0-9_]+=/!d; s/=.*//' secrets.env.tpl | sort -u
+            sed -E '/^[A-Z0-9_]+=/!d; s/=.*//' secrets.env | sort -u
           )
           mapfile -t stale_secrets < <(
             comm -23 \
