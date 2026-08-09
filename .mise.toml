@@ -17,7 +17,7 @@ run = "prek run --all-files"
 description = "Remove rendered artifacts, caches, and bytecode"
 run = """
 find . -path ./.git -prune -o \
-  -type d \\( -name __pycache__ -o -name .render -o -name .ruff_cache \\) \
+  -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
   -prune -exec rm -rf -- {} +
 find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
 """
