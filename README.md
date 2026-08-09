@@ -1,16 +1,47 @@
 # Homelab Fly.io
 
-Fly.io service implementations and deployment templates live in this
-repository. The homelab config supplies the non-secret deployment instances
-and shared service inventory.
+This repository owns the Fly.io service implementations deployed by the
+[homelab](https://github.com/maxexcloo/homelab) configuration. Each service
+lives in a root-level directory with its Fly configuration, templates, and
+application files.
 
-Pushes deploy every configured Fly instance. Manual workflows can deploy one
-instance or explicitly delete an app. Deployments render the selected service,
-resolve its `op://` references through a read-only 1Password service account,
-and send secrets directly to Fly.io.
+GitHub Actions renders deployments, resolves secrets through a read-only
+1Password service account, and reconciles Fly apps without writing resolved
+secrets to the repository or workflow artefacts.
 
-The selector accepts Fly config v3. Service-wide generated settings are carried
-with the selected deployment under `custom.<service>`.
+## Deployment Flow
+
+1. The homelab repository publishes non-secret Fly config v3 through the
+   `CONFIG` repository variable.
+2. Pushes to `main` select every configured deployment; manual runs may select
+   one deployment by key or app name.
+3. Templates are rendered with gomplate, certificates and secrets are
+   reconciled, and `flyctl` deploys and scales the app.
+4. Manual runs may explicitly delete an app instead of deploying it.
+
+## Repository Layout
+
+- `<service>/` — application files and gomplate templates for one service.
+- `.github/scripts/fly.py` — renders and reconciles Fly apps.
+- `.github/scripts/select-deployments.py` — validates config and selects work.
+- `.github/workflows/deploy.yaml` — checks and runs selected deployments.
+- `.render/` — ephemeral rendered output; never committed.
+
+The selected deployment is available to templates through `DEPLOYMENT`, with
+service-wide generated settings under `custom.<service>`.
+
+## Development
+
+```bash
+mise run setup    # Install Git hooks
+mise run check    # Run all repository checks
+mise run fmt      # Format supported files
+mise run cleanup  # Remove generated output and caches
+```
+
+To add a service, create its root directory, add its application and template
+files, and configure the deployment in the homelab repository. Shared selection
+and deployment code should remain service-agnostic.
 
 ## Licence
 
