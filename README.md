@@ -10,5 +10,8 @@ resolve its `op://` references through a read-only 1Password service account,
 and send secrets directly to Fly.io.
 
 The selector accepts Fly config v3. Service-wide generated settings are carried
-with the selected deployment under `custom.<service>`; v2 remains readable
-during the rollout.
+with the selected deployment under `custom.<service>`.
+
+## Licence
+
+AGPL-3.0 - see [LICENSE](LICENSE).

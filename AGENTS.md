@@ -9,7 +9,7 @@
 ## Secrets
 
 - Resolve 1Password references only in GitHub Actions.
-- Never write resolved secrets to logs, artifacts, or commits.
+- Never write resolved secrets to logs, artefacts, or commits.
 
 ## Style
 
@@ -22,6 +22,11 @@
 - Sort mise tools, tasks, workflow structure, Renovate rules, and Prek hooks
   consistently with the homelab repository.
 - Use `.yaml`, never `.yml`.
+- Preserve `LICENSE` and its legal text; never relicense without explicit approval.
+- Use Australian English throughout authored prose and every project-owned name,
+  including identifiers, configuration keys, environment variables, paths, CLI
+  commands, and options. Update every producer and consumer together; preserve only
+  externally defined names and terminology.
 
 ## Verification
 

@@ -14,7 +14,7 @@ description = "Run all repository checks"
 run = "prek run --all-files"
 
 [tasks.cleanup]
-description = "Remove rendered artifacts, caches, and bytecode"
+description = "Remove rendered artefacts, caches, and bytecode"
 run = """
 find . -path ./.git -prune -o \
   -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
