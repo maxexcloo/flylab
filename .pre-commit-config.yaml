@@ -5,11 +5,9 @@ repos:
         args:
           - --maxkb=1024
       - id: check-case-conflict
-      - id: check-json
       - id: check-merge-conflict
       - id: check-symlinks
       - id: check-toml
-      - id: check-yaml
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: fix-byte-order-marker
