@@ -8,3 +8,7 @@ Pushes deploy every configured Fly instance. Manual workflows can deploy one
 instance or explicitly delete an app. Deployments render the selected service,
 resolve its `op://` references through a read-only 1Password service account,
 and send secrets directly to Fly.io.
+
+The selector accepts Fly config v3. Service-wide generated settings are carried
+with the selected deployment under `custom.<service>`; v2 remains readable
+during the rollout.

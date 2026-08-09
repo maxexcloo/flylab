@@ -77,6 +77,5 @@ jobs:
       - name: Deploy
         if: matrix.deployment.action == 'deploy'
         env:
-          CONFIG: ${{ vars.CONFIG }}
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         run: uv run --no-project .github/scripts/fly.py

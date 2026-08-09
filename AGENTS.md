@@ -15,7 +15,12 @@
 
 - Keep Python helpers and constants sorted; keep `main()` and its execution guard last.
 - Prefer direct code and standard tools over repository-specific abstractions.
-- Sort mise tools, tasks, workflow structure, Renovate rules, and Prek hooks consistently with the homelab repository.
+- Sort unordered peer entries by value shape: simple or single-line values first,
+  then structured or multiline values, alphabetically within each group.
+- Sort unordered peer headings, lists, and table rows alphabetically. Preserve
+  narrative, procedural, dependency, interface, priority, and chronological order.
+- Sort mise tools, tasks, workflow structure, Renovate rules, and Prek hooks
+  consistently with the homelab repository.
 - Use `.yaml`, never `.yml`.
 
 ## Verification

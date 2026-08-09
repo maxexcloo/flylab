@@ -1,6 +1,6 @@
-{{- defineDatasource "config" "env:///CONFIG?type=application/json" -}}
-{{- $config := ds "config" -}}
-{{- $gatus := $config.gatus -}}
+{{- defineDatasource "deployment" "env:///DEPLOYMENT?type=application/json" -}}
+{{- $deployment := ds "deployment" -}}
+{{- $gatus := $deployment.custom.gatus -}}
 alerting:
   email:
     from: {{ $gatus.mail.from }}
@@ -16,31 +16,6 @@ alerting:
       success-threshold: {{ index (index $gatus.mail "default-alert") "success-threshold" }}
 
 endpoints:
-{{- range $service := $config.services }}
-  {{- $key := $service.key | strings.ToUpper | strings.ReplaceAll "-" "_" }}
-  {{- range $url := $service.urls }}
-  - group: " {{ $url.host }}"
-    name: "{{ $service.title }} ({{ $service.target }})"
-    url: "{{ $url.href }}"
-    {{- if $service.features.monitoring_alerts }}
-    alerts:
-      - type: email
-    {{- end }}
-    conditions:
-      - "[CERTIFICATE_EXPIRATION] > 168h"
-      - "[RESPONSE_TIME] < 5000"
-    {{- if $service.features.oidc_forward_auth }}
-      - "[STATUS] == 200"
-    {{- else }}
-      - "[STATUS] == any(200, 401)"
-    {{- end }}
-    headers:
-    {{- if $service.features.oidc_forward_auth }}
-      Authorization: "Basic {{ printf "${MONITORING_BASIC_%s}" $key }}"
-    {{- end }}
-      X-Gatus-Token: "{{ printf "${MONITORING_TOKEN_%s}" $key }}"
-  {{- end -}}
-{{ end }}
 {{ $gatus.probes | toYAML | strings.Indent 2 }}
 ui:
   dashboard-heading: {{ index $gatus.ui "dashboard-heading" }}
