@@ -47,7 +47,7 @@ jobs:
           CONFIG: ${{ vars.CONFIG }}
         run: uv run --no-project .github/scripts/select-deployments.py
 
-  run:
+  reconcile:
     name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.key }}
     needs: prepare
     if: needs.prepare.outputs.deployments != '[]'
