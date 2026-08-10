@@ -18,8 +18,8 @@ def main():
         deployments = [{"app": selection, "key": selection}]
     else:
         config = json.loads(os.environ["CONFIG"])
-        if config.get("repository") != "fly" or config.get("version") != 3:
-            raise SystemExit("Expected Fly config version 3")
+        if config.get("repository") != "fly":
+            raise SystemExit("Expected Fly config")
 
         if selection:
             deployments = [
