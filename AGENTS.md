@@ -3,6 +3,8 @@
 ## Structure
 
 - Keep each service implementation in `<service>/`.
+- Keep only `AGENTS.md` and `README.md` as root Markdown files; put other project
+  documentation in `docs/`.
 - Keep repository tooling generic; adding a service must not require changing shared workflow logic.
 - Treat `.render/` as ephemeral deployment output.
 
@@ -21,7 +23,8 @@
   narrative, procedural, dependency, interface, priority, and chronological order.
 - Sort mise tools, tasks, workflow structure, Renovate rules, and Prek hooks
   consistently with the homelab repository.
-- Use `.yaml`, never `.yml`.
+- Use `.yaml`, never `.yml`, for project-owned YAML files unless external tooling
+  requires a fixed filename.
 - Preserve `LICENSE` and its legal text; never relicense without explicit approval.
 - Use Australian English throughout authored prose and every project-owned name,
   including identifiers, configuration keys, environment variables, paths, CLI

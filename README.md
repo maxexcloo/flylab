@@ -21,11 +21,11 @@ secrets to the repository or workflow artefacts.
 
 ## Repository Layout
 
+- `.render/` — ephemeral rendered output; never committed.
 - `<service>/` — application files and gomplate templates for one service.
 - `.github/scripts/fly.py` — renders and reconciles Fly apps.
 - `.github/scripts/select-deployments.py` — validates config and selects work.
 - `.github/workflows/deploy.yaml` — checks and runs selected deployments.
-- `.render/` — ephemeral rendered output; never committed.
 
 The selected deployment is available to templates through `DEPLOYMENT`, with
 service-wide generated settings under `custom.<service>`.
