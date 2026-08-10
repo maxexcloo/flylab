@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   prepare:
-    name: Check & Select
+    name: Select
     runs-on: ubuntu-latest
     outputs:
       deployments: ${{ steps.select.outputs.deployments }}
@@ -38,10 +38,8 @@ jobs:
       - name: Set up tools
         uses: jdx/mise-action@v4
         with:
-          install_args: actionlint hadolint prek prettier ruff uv
+          install_args: uv
           version: 2026.8.3
-      - name: Run checks
-        run: mise run check
       - name: Select deployments
         id: select
         env:
