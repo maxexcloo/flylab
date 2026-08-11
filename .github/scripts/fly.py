@@ -6,17 +6,18 @@ import subprocess
 from pathlib import Path
 
 SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=.*$")
+SERVICE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 def app_exists(app):
-    return (
-        subprocess.run(
-            ["flyctl", "apps", "info", app],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        ).returncode
-        == 0
+    apps = json.loads(
+        subprocess.check_output(
+            ["flyctl", "apps", "list", "--json"],
+            text=True,
+        )
+    )
+    return any(
+        app == (candidate.get("Name") or candidate.get("name")) for candidate in apps
     )
 
 
@@ -114,6 +115,9 @@ def reconcile_secrets(app, deployment_path):
 
 
 def render(service):
+    if not SERVICE_PATTERN.fullmatch(service):
+        raise ValueError(f"Invalid service: {service}")
+
     service_path = Path(service)
     if not service_path.is_dir():
         raise FileNotFoundError(f"Service not found: {service}")

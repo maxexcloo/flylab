@@ -11,7 +11,7 @@ secrets to the repository or workflow artefacts.
 
 ## Deployment Flow
 
-1. The homelab repository publishes non-secret Fly config v3 through the
+1. The homelab repository publishes non-secret Fly config through the
    `CONFIG` repository variable.
 2. Pushes to `main` select every configured deployment; manual runs may select
    one deployment by key or app name.

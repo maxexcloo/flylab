@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - README.md
-      - renovate.json
+    paths:
+      - "*/**"
+      - "!docs/**"
+      - .github/scripts/fly.py
+      - .github/scripts/select-deployments.py
+      - .github/workflows/deploy.yaml
+      - .mise.toml
   workflow_dispatch:
     inputs:
       action:

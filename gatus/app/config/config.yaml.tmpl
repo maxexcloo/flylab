@@ -1,26 +1,10 @@
 {{- defineDatasource "deployment" "env:///DEPLOYMENT?type=application/json" -}}
 {{- $deployment := ds "deployment" -}}
 {{- $gatus := $deployment.custom.gatus -}}
-alerting:
-  email:
-    from: {{ $gatus.mail.from }}
-    host: {{ $gatus.mail.host }}
-    password: {{ "${MAIL_PASSWORD}" }}
-    port: {{ $gatus.mail.port }}
-    to: {{ $gatus.mail.to }}
-    username: {{ $gatus.mail.username }}
-    default-alert:
-      description: {{ (index $gatus.mail "default-alert").description }}
-      failure-threshold: {{ index (index $gatus.mail "default-alert") "failure-threshold" }}
-      send-on-resolved: {{ index (index $gatus.mail "default-alert") "send-on-resolved" }}
-      success-threshold: {{ index (index $gatus.mail "default-alert") "success-threshold" }}
-
-endpoints:
-{{ $gatus.probes | toYAML | strings.Indent 2 }}
-ui:
-  dashboard-heading: {{ index $gatus.ui "dashboard-heading" }}
-  dashboard-subheading: {{ index $gatus.ui "dashboard-subheading" }}
-  default-sort-by: {{ index $gatus.ui "default-sort-by" }}
-  description: {{ $gatus.ui.description }}
-  header: {{ $gatus.ui.header }}
-  title: {{ $gatus.ui.title }}
+{{- $email := coll.Merge (coll.Dict "password" "${MAIL_PASSWORD}") $gatus.mail -}}
+{{- $config := coll.Dict
+  "alerting" (coll.Dict "email" $email)
+  "endpoints" $gatus.probes
+  "ui" $gatus.ui
+-}}
+{{ $config | toYAML }}
