@@ -42,6 +42,7 @@ def deploy(deployment):
         check=True,
         cwd=deployment_path,
     )
+    verify(app, deployment["backend"]["port"])
     subprocess.run(
         ["flyctl", "scale", "count", str(deployment["machine_count"]), "--app", app],
         check=True,
@@ -140,6 +141,21 @@ def render(service):
         )
 
     return render_path
+
+
+def verify(app, port):
+    subprocess.run(
+        [
+            "flyctl",
+            "ssh",
+            "console",
+            "--app",
+            app,
+            "--command",
+            f"wget --output-document=- --timeout=10 http://127.0.0.1:{port}/health",
+        ],
+        check=True,
+    )
 
 
 def main():
