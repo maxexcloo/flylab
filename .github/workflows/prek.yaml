@@ -2,6 +2,7 @@ name: Prek
 
 on:
   pull_request:
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -24,6 +25,6 @@ jobs:
         uses: jdx/mise-action@v4
         with:
           install_args: actionlint hadolint prek prettier ruff
-          version: 2026.8.3
+          version: 2026.8.4
       - name: Run checks
         run: mise run check

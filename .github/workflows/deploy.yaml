@@ -4,13 +4,8 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "*/**"
-      - "!docs/**"
-      - .github/scripts/fly.py
-      - .github/scripts/select-deployments.py
-      - .github/workflows/deploy.yaml
-      - .mise.toml
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
     inputs:
       action:
@@ -29,8 +24,12 @@ permissions:
   contents: read
 
 jobs:
+  check:
+    uses: ./.github/workflows/prek.yaml
+
   prepare:
     name: Select
+    needs: check
     runs-on: ubuntu-latest
     outputs:
       deployments: ${{ steps.select.outputs.deployments }}
@@ -43,7 +42,7 @@ jobs:
         uses: jdx/mise-action@v4
         with:
           install_args: uv
-          version: 2026.8.3
+          version: 2026.8.4
       - name: Select deployments
         id: select
         env:
@@ -74,7 +73,7 @@ jobs:
         uses: jdx/mise-action@v4
         with:
           install_args: 1password-cli flyctl gomplate uv
-          version: 2026.8.3
+          version: 2026.8.4
       - name: Delete
         if: matrix.deployment.action == 'delete'
         run: uv run --no-project .github/scripts/fly.py
