@@ -1,7 +1,13 @@
 {{- defineDatasource "deployment" "env:///DEPLOYMENT?type=application/json" -}}
 {{- $deployment := ds "deployment" -}}
 {{- $gatus := $deployment.custom.gatus -}}
-{{- $email := coll.Merge (coll.Dict "password" "${MAIL_PASSWORD}") $gatus.mail -}}
+{{- $email := coll.Merge
+  (coll.Dict
+    "password" "${MAIL_PASSWORD}"
+    "port" (conv.ToInt $gatus.mail.port)
+  )
+  $gatus.mail
+-}}
 {{- $config := coll.Dict
   "alerting" (coll.Dict "email" $email)
   "endpoints" $gatus.probes
