@@ -10,6 +10,13 @@ primary_region = "{{ $deployment.region }}"
 force_https = {{ $deployment.force_https }}
 internal_port = {{ $deployment.backend.port }}
 
+[[http_service.checks]]
+grace_period = "10s"
+interval = "30s"
+method = "GET"
+path = "/health"
+timeout = "5s"
+
 [[vm]]
 cpu_kind = "{{ $deployment.cpu_kind }}"
 cpus = {{ $deployment.cpus }}
