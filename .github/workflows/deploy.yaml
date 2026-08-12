@@ -25,6 +25,7 @@ permissions:
 
 jobs:
   check:
+    name: Prek
     uses: ./.github/workflows/prek.yaml
 
   prepare:
