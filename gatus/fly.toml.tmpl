@@ -8,7 +8,7 @@ primary_region = "{{ $deployment.region }}"
 
 [http_service]
 force_https = {{ $deployment.force_https }}
-internal_port = {{ $deployment.backend.port }}
+internal_port = {{ $deployment.service.routing.default.backend.port }}
 
 [[http_service.checks]]
 grace_period = "10s"

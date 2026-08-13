@@ -4,7 +4,6 @@ from pathlib import Path
 
 REQUIRED_DEPLOYMENT_FIELDS = {
     "app": str,
-    "backend": dict,
     "certificates": list,
     "cpu_kind": str,
     "cpus": int,
@@ -15,7 +14,9 @@ REQUIRED_DEPLOYMENT_FIELDS = {
     "machine_count": int,
     "memory_mb": int,
     "region": str,
-    "service": str,
+    "service": dict,
+    "target": str,
+    "template": str,
 }
 
 
@@ -39,7 +40,7 @@ def validate_config(config):
             ):
                 raise SystemExit(f"Invalid Fly deployment field: {field}")
 
-        backend = deployment["backend"]
+        backend = deployment["service"]["routing"]["default"]["backend"]
         if type(backend.get("port")) is not int:
             raise SystemExit("Invalid Fly deployment field: backend.port")
         if any(

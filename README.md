@@ -27,8 +27,8 @@ secrets to the repository or workflow artefacts.
 - `.github/scripts/select-deployments.py` — validates config and selects work.
 - `.github/workflows/deploy.yaml` — checks and runs selected deployments.
 
-The selected deployment is available to templates through `DEPLOYMENT`, with
-service-wide generated settings under `custom.<service>`.
+The selected deployment is available to templates through `DEPLOYMENT`. Gatus
+receives its generated endpoint configuration under `custom.gatus`.
 
 ## Development
 

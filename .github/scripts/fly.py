@@ -30,7 +30,7 @@ def delete(app):
 
 def deploy(deployment):
     app = deployment["app"]
-    deployment_path = render(deployment["service"])
+    deployment_path = render(deployment["template"])
 
     if not app_exists(app):
         subprocess.run(["flyctl", "apps", "create", app], check=True)
@@ -42,7 +42,7 @@ def deploy(deployment):
         check=True,
         cwd=deployment_path,
     )
-    verify(app, deployment["backend"]["port"])
+    verify(app, deployment["service"]["routing"]["default"]["backend"]["port"])
     subprocess.run(
         ["flyctl", "scale", "count", str(deployment["machine_count"]), "--app", app],
         check=True,
