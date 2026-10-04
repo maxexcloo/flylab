@@ -1,6 +1,6 @@
 FROM ghcr.io/twin/gatus:v5.37.0 AS gatus
 FROM docker.io/tailscale/tailscale:v1.102.5 AS tailscale
-FROM alpine:3.24.1
+FROM alpine:3.24.2
 RUN apk add --no-cache ca-certificates iptables ip6tables \
     && mkdir -p /var/cache/tailscale /var/lib/tailscale /var/run/tailscale
 WORKDIR /app
