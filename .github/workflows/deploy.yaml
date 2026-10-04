@@ -40,10 +40,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up tools
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v5
         with:
           install_args: uv
-          version: 2026.8.4
+          version: 2026.10.1
       - name: Select deployments
         id: select
         env:
@@ -71,10 +71,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up tools
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v5
         with:
           install_args: 1password-cli flyctl gomplate uv
-          version: 2026.8.4
+          version: 2026.10.1
       - name: Delete
         if: matrix.deployment.action == 'delete'
         run: uv run --no-project .github/scripts/fly.py

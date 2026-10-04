@@ -9,6 +9,8 @@ GitHub Actions renders deployments, resolves secrets through a read-only
 1Password service account, and reconciles Fly apps without writing resolved
 secrets to the repository or workflow artefacts.
 
+`PLAN.md` contains only unfinished work.
+
 ## Deployment Flow
 
 1. The homelab repository publishes non-secret Fly config through the

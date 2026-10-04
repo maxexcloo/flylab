@@ -1,13 +1,14 @@
 [tools]
-1password-cli = "2.38.1"
+1password-cli = "2.40.0"
 actionlint = "1.7.12"
-flyctl = "0.4.81"
+flyctl = "0.4.111"
 gomplate = "5.2.0"
 hadolint = "2.15.1"
-prek = "0.4.13"
-prettier = "3.9.6"
-ruff = "0.16.2"
-uv = "0.12.3"
+prek = "0.5.4"
+prettier = "3.9.9"
+ruff = "0.16.10"
+shellcheck = "0.11.0"
+uv = "0.12.23"
 
 [tasks.check]
 description = "Run all repository checks"

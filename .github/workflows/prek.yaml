@@ -22,9 +22,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up tools
-        uses: jdx/mise-action@v4
+        uses: jdx/mise-action@v5
         with:
-          install_args: actionlint hadolint prek prettier ruff
-          version: 2026.8.4
+          install_args: actionlint hadolint prek prettier ruff shellcheck
+          version: 2026.10.1
       - name: Run checks
         run: mise run check
