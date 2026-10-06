@@ -268,6 +268,7 @@ def render(repository, homelab, output):
                     directory,
                 ],
                 cwd=repository,
+                env=dict(os.environ, HOMELAB_DIRECTORY=str(homelab)),
                 text=True,
             )
         )

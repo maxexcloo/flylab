@@ -48,7 +48,9 @@ secrets and make no deployment changes. Generated output stays under `.render/`;
 
 `gatus/render.py` runs Kubelab's `scripts/render_service_inventory.sh --include-static`.
 The inventory derives monitors from rendered HTTPRoutes, supported HelmRelease
-routes and Homepage's static `siteMonitor` entries. No running cluster or Homepage
+routes and Homepage's static `siteMonitor` entries. Kubelab's Homepage resolver
+expands machine references using the same Homelab checkout selected for this
+deployment, so links, widget URLs and checks share Homelab's endpoint declarations. No running cluster or Homepage
 API is required. Services are grouped by their longest matching Homelab DNS zone.
 Route names include their current cluster, for example `Grafana (mbk)` and
 `Grafana (syd)`. Missing metadata, unknown DNS zones, invalid URLs, conflicting
