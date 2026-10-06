@@ -27,7 +27,7 @@ repos:
         language: system
       - id: gatus-tests
         name: Check Gatus inventory conversion
-        entry: mise exec -- uv run --no-project --python ">=3.11" --with pyyaml==6.0.3 python -m unittest discover -s gatus/tests
+        entry: mise exec -- uv run --python python --no-project --with pyyaml==6.0.3 python -m unittest discover -s gatus/tests
         files: ^(gatus/|\.github/scripts/)
         language: system
         pass_filenames: false

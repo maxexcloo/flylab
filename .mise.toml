@@ -1,11 +1,12 @@
 [tools]
 1password-cli = "2.40.0"
 actionlint = "1.7.12"
-flyctl = "0.4.111"
+flyctl = "0.4.112"
 hadolint = "2.15.1"
 kustomize = "5.8.2"
-prek = "0.5.4"
+prek = "0.5.5"
 prettier = "3.9.9"
+python = "3.14.8"
 ruff = "0.16.10"
 shellcheck = "0.11.0"
 uv = "0.12.23"
@@ -34,7 +35,7 @@ ruff format .
 
 [tasks.render]
 description = "Render a service without resolving secrets or deploying"
-run = 'uv run --no-project .github/scripts/fly.py --render "$usage_service"'
+run = 'uv run --python python --no-project .github/scripts/fly.py --render "$usage_service"'
 usage = 'arg "<service>"'
 
 [tasks.setup]

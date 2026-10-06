@@ -50,11 +50,11 @@ jobs:
       - name: Set up tools
         uses: jdx/mise-action@v5
         with:
-          install_args: uv
+          install_args: python uv
           version: 2026.10.3
       - name: Select deployments
         id: select
-        run: uv run --no-project .github/scripts/select-deployments.py
+        run: uv run --python python --no-project .github/scripts/select-deployments.py
 
   reconcile:
     name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.key }}
@@ -90,10 +90,10 @@ jobs:
         if: matrix.deployment.action == 'delete'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: uv run --no-project .github/scripts/fly.py
+        run: uv run --python python --no-project .github/scripts/fly.py
       - name: Deploy
         if: matrix.deployment.action == 'deploy'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        run: uv run --no-project .github/scripts/fly.py
+        run: uv run --python python --no-project .github/scripts/fly.py
