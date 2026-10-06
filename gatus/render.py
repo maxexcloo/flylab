@@ -124,7 +124,7 @@ def infrastructure_endpoints(repository, overrides):
             for scope, target in targets.items():
                 probe = apply_override(
                     {
-                        "group": f"{scope} / {MACHINE_GROUPS[machine_type]}",
+                        "group": f"{scope} ({MACHINE_GROUPS[machine_type]})",
                         "name": f"{hostname} ({network})",
                         "url": f"icmp://{target}",
                         "alerts": [{"type": "email"}],

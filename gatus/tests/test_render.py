@@ -146,7 +146,7 @@ class InfrastructureTest(unittest.TestCase):
                     "icmp://renamed.mbk.example.net",
                 ],
             )
-            self.assertEqual(probes[0]["group"], "External / Servers")
+            self.assertEqual(probes[0]["group"], "External (Servers)")
             self.assertEqual(probes[2]["name"], "renamed (mbk)")
             self.assertEqual(
                 probes[2]["conditions"],

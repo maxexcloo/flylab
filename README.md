@@ -65,8 +65,8 @@ Untyped personal devices and Tailscale-disabled private devices are excluded;
 Mandu is explicitly disabled in the overrides because it is an optional workstation.
 The current baseline is eight internal machines and one external check.
 
-The default UI sort remains `group`: domain groups first, then `External / ...`,
-`Internal / ...` and `Providers`, alphabetically within each section. This order
+The default UI sort remains `group`: domain groups first, then `External (...)`,
+`Internal (...)` and `Providers`, alphabetically within each section. This order
 comes from the group names, not the order of YAML files. The browser can retain a
 user-selected sort or filter. Renaming groups or endpoints changes Gatus history
 keys; the existing memory-only storage also resets on restart.
