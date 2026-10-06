@@ -99,9 +99,12 @@ configuration, not Flux readiness.
 ### Credentials & Activation
 
 - **Fly**: `FLY_API_TOKEN` is a GitHub Actions secret here.
-- **GitHub dispatch**: configure `FLY_DEPLOY_TOKEN` in Homelab and Kubelab with Actions write
-  access to `maxexcloo/homelab-fly`. Its ordinary repository token cannot dispatch
-  a workflow here. Install this receiving workflow before the source-repository changes.
+- **GitHub dispatch**: source workflows load `GH_WORKFLOW_TOKEN` from
+  `op://Homelab/GitHub Actions/workflow-token` through the standard 1Password
+  Action. Each source repo needs `OP_SERVICE_ACCOUNT_TOKEN` with read access to
+  that vault. The GitHub token needs Actions write access only to
+  `maxexcloo/homelab-fly`; it is not a Fly credential. Install this receiving
+  workflow before the source-repository changes.
 - **1Password**: `OP_SERVICE_ACCOUNT_TOKEN` reads the app vaults discovered from
   Kubelab. Give it read-only access to the cluster vaults; new apps within those
   vaults need no service-account changes.
