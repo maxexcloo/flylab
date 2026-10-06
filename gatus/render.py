@@ -5,6 +5,7 @@
 
 import argparse
 import copy
+import hashlib
 import ipaddress
 import json
 import os
@@ -17,6 +18,10 @@ from urllib.parse import urlsplit
 
 import yaml
 
+HEADER_SECRET_PATTERN = re.compile(
+    r'http\.request\.headers\["([^"\n]+)"\]\[\*\] eq "'
+    r'\{\{\s*([a-z0-9-]+):([a-z0-9-]+):([a-zA-Z0-9_.-]+)\s*\}\}"'
+)
 MACHINE_GROUPS = {
     "appliance": "Appliances",
     "backup": "Servers",
@@ -136,20 +141,149 @@ def infrastructure_endpoints(repository, overrides):
     )
 
 
-def render(repository, homelab, output):
-    inventory = json.loads(
-        subprocess.check_output(
-            ["bash", "scripts/render_service_inventory.sh", "--include-static"],
-            cwd=repository,
-            text=True,
-        )
+def monitoring_credentials(inventory, manifests):
+    headers = {}
+    secrets = {}
+    clusters = sorted(
+        {entry["cluster"] for entry in inventory if entry["type"] == "route"}
     )
+    for cluster in clusters:
+        resources = []
+        for target in (
+            f"apps/overlays/{cluster}.yaml",
+            f"clusters/{cluster}/platform.yaml",
+        ):
+            resources.extend(
+                resource
+                for resource in yaml.safe_load_all((manifests / target).read_text())
+                if resource
+            )
+        external_secrets = {}
+        stores = {}
+        for resource in resources:
+            kind = resource["kind"]
+            metadata = resource["metadata"]
+            if kind in {"ClusterSecretStore", "SecretStore"}:
+                namespace = (
+                    metadata.get("namespace", "") if kind == "SecretStore" else ""
+                )
+                stores[(kind, namespace, metadata["name"])] = resource
+            elif kind == "ExternalSecret":
+                target = (
+                    resource["spec"].get("target", {}).get("name", metadata["name"])
+                )
+                key = (metadata["namespace"], target)
+                if key in external_secrets:
+                    raise ValueError(f"Multiple ExternalSecrets target {key}")
+                external_secrets[key] = resource
+        for policy in (
+            resource
+            for resource in resources
+            if resource["kind"] == "CloudflareWAFPolicy"
+        ):
+            rule = policy["spec"]["rule"]
+            if not rule.get("enabled", True):
+                continue
+            matches = HEADER_SECRET_PATTERN.findall(rule["expression"])
+            if not matches:
+                if (
+                    "http.request.headers" in rule["expression"]
+                    and "{{" in rule["expression"]
+                ):
+                    raise ValueError("Unsupported WAF monitoring header comparison")
+                continue
+            for entry in inventory:
+                if (
+                    entry["cluster"] != cluster
+                    or entry["namespace"] != policy["metadata"]["namespace"]
+                    or entry["cloudflareProxied"] != "true"
+                    or urlsplit(entry["monitor"]).hostname not in entry["hostnames"]
+                ):
+                    continue
+                for header, namespace, secret_name, field in matches:
+                    resource = external_secrets[(namespace, secret_name)]
+                    spec = resource["spec"]
+                    if spec.get("target", {}).get("template"):
+                        raise ValueError(
+                            "Monitoring secrets must use direct ExternalSecret data mappings"
+                        )
+                    store = spec["secretStoreRef"]
+                    kind = store.get("kind", "SecretStore")
+                    store_namespace = namespace if kind == "SecretStore" else ""
+                    vaults = stores[(kind, store_namespace, store["name"])]["spec"][
+                        "provider"
+                    ]["onepassword"]["vaults"]
+                    if len(vaults) != 1:
+                        raise ValueError(
+                            "Monitoring secrets require exactly one 1Password vault"
+                        )
+                    mappings = [
+                        data
+                        for data in spec.get("data", [])
+                        if data["secretKey"] == field
+                    ]
+                    if len(mappings) != 1 or "sourceRef" in mappings[0]:
+                        raise ValueError(
+                            f"Unsupported monitoring secret mapping: {namespace}/{secret_name}/{field}"
+                        )
+                    remote = mappings[0]["remoteRef"]
+                    reference = f"op://{next(iter(vaults))}/{remote['key']}/{remote['property']}"
+                    if not re.fullmatch(r"op://[a-zA-Z0-9_./ -]+", reference):
+                        raise ValueError(
+                            "Unsupported characters in monitoring secret reference; use item IDs"
+                        )
+                    name = (
+                        "GATUS_HEADER_"
+                        + hashlib.sha256(reference.encode()).hexdigest()[:16].upper()
+                    )
+                    value = "${" + name + "}"
+                    endpoint_headers = headers.setdefault(entry["monitor"], {})
+                    if (
+                        header.lower() in endpoint_headers
+                        and endpoint_headers[header.lower()] != value
+                    ):
+                        raise ValueError(
+                            f"Conflicting monitoring header: {entry['monitor']}"
+                        )
+                    endpoint_headers[header.lower()] = value
+                    secrets[name] = reference
+    return headers, secrets
+
+
+def render(repository, homelab, output):
+    with tempfile.TemporaryDirectory(prefix="gatus-manifests-") as directory:
+        manifests = Path(directory)
+        subprocess.run(
+            ["bash", "scripts/render_manifests.sh", directory],
+            cwd=repository,
+            check=True,
+        )
+        inventory = json.loads(
+            subprocess.check_output(
+                [
+                    "bash",
+                    "scripts/render_service_inventory.sh",
+                    "--include-static",
+                    "--manifest-directory",
+                    directory,
+                ],
+                cwd=repository,
+                text=True,
+            )
+        )
+        headers, secrets = monitoring_credentials(inventory, manifests)
     overrides = yaml.safe_load(Path(__file__).with_name("overrides.yaml").read_text())
     zones = [
         yaml.safe_load(path.read_text())["name"]
         for path in sorted((homelab / "data/dns").glob("*.yaml"))
     ]
     probes = endpoints(inventory, overrides, zones)
+    for probe in probes:
+        if probe["url"] in headers:
+            probe["headers"] = dict(probe.get("headers", {}), **headers[probe["url"]])
+    with (output / "secrets.env").open("a") as secret_file:
+        for name, reference in sorted(secrets.items()):
+            secret_file.write(f"{name}={{{{ {reference} }}}}\n")
     infrastructure = infrastructure_endpoints(homelab, overrides)
     config_directory = output / "app/config"
     for path in sorted(config_directory.glob("*.yaml")):

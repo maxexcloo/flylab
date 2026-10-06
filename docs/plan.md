@@ -1,7 +1,7 @@
 # Activation
 
-1. Confirm the read-only 1Password service account can read the retained Gatus
-   mail and Tailscale references and `Cluster: syd/Redlib/monitoring-token`.
+1. Confirm the read-only 1Password service account can read the dynamically
+   discovered app references. Preserve the native Fly mail and Tailscale secrets.
    Keep the mail key sending-only; resolve references only in GitHub Actions.
 2. Install the receiving Fly workflow, then configure `FLY_DEPLOY_TOKEN` in Homelab and Kubelab
    with Actions write access only to `maxexcloo/homelab-fly` and install their dispatches.

@@ -46,7 +46,7 @@ def deploy(deployment):
         subprocess.run(["flyctl", "apps", "create", app], check=True)
 
     reconcile_certificates(app, deployment["certificates"])
-    reconcile_secrets(app, deployment_path)
+    reconcile_secrets(app, deployment_path, deployment.get("required_secrets", []))
     subprocess.run(
         ["flyctl", "deploy", "--app", app, "--config", "fly.toml"],
         check=True,
@@ -90,6 +90,12 @@ def load_deployments():
             raise ValueError("Expected a positive machine count")
         if type(deployment["port"]) is not int or not 1 <= deployment["port"] <= 65535:
             raise ValueError("Invalid internal port")
+        required = deployment.get("required_secrets", [])
+        if not isinstance(required, list) or any(
+            not isinstance(name, str) or not re.fullmatch(r"[A-Z0-9_]+", name)
+            for name in required
+        ):
+            raise ValueError("Invalid required secret names")
         certificates = deployment["certificates"]
         if not isinstance(certificates, list) or any(
             not isinstance(host, str) or not host or host.startswith("-")
@@ -126,11 +132,15 @@ def reconcile_certificates(app, desired):
         )
 
 
-def reconcile_secrets(app, deployment_path):
+def reconcile_secrets(app, deployment_path, required):
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Resolve 1Password references only in GitHub Actions")
     env_path = deployment_path / "secrets.env"
-    lines = [line for line in env_path.read_text().splitlines() if line]
+    lines = (
+        [line for line in env_path.read_text().splitlines() if line]
+        if env_path.exists()
+        else []
+    )
     matches = [SECRET_PATTERN.fullmatch(line) for line in lines]
     if not all(matches):
         raise ValueError("Invalid secrets.env")
@@ -139,19 +149,28 @@ def reconcile_secrets(app, deployment_path):
     if len(desired) != len(matches):
         raise ValueError("Duplicate secret in secrets.env")
 
-    injected = subprocess.run(
-        ["op", "inject", "--in-file", env_path],
-        check=True,
-        stdout=subprocess.PIPE,
-        text=True,
-    ).stdout
+    injected = (
+        subprocess.run(
+            ["op", "inject", "--in-file", env_path],
+            check=True,
+            stdout=subprocess.PIPE,
+            text=True,
+        ).stdout
+        if lines
+        else ""
+    )
 
     current = {
         name
         for secret in fly_json(["secrets", "list"], app)
         if (name := secret.get("Name") or secret.get("name"))
     }
-    stale = sorted(current - desired)
+    missing = set(required) - current - desired
+    if missing:
+        raise ValueError(
+            f"Required Fly secrets are missing: {', '.join(sorted(missing))}"
+        )
+    stale = sorted(current - desired - set(required))
     if stale:
         subprocess.run(
             ["flyctl", "secrets", "unset", *stale, "--app", app, "--stage"],

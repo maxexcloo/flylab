@@ -68,7 +68,7 @@ class EndpointsTest(unittest.TestCase):
         overrides = {
             "https://media.example.com": {
                 "alerts": [],
-                "headers": {"X-Gatus-Token": "${MONITORING_TOKEN_REDLIB}"},
+                "headers": {"X-Gatus-Token": "${GATUS_HEADER_EXAMPLE}"},
             }
         }
         before = copy.deepcopy(overrides)
@@ -152,6 +152,99 @@ class InfrastructureTest(unittest.TestCase):
                 probes[2]["conditions"],
                 ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
             )
+
+
+class MonitoringCredentialsTest(unittest.TestCase):
+    def test_discovery_follows_waf_and_external_secret_references(self):
+        inventory = [
+            route(
+                namespace="example",
+                cloudflareProxied="true",
+                hostnames=["media.example.com"],
+            )
+        ]
+        resources = [
+            {
+                "kind": "ClusterSecretStore",
+                "metadata": {"name": "onepassword"},
+                "spec": {"provider": {"onepassword": {"vaults": {"vault-id": 1}}}},
+            },
+            {
+                "kind": "ExternalSecret",
+                "metadata": {"name": "source", "namespace": "example"},
+                "spec": {
+                    "secretStoreRef": {
+                        "kind": "ClusterSecretStore",
+                        "name": "onepassword",
+                    },
+                    "target": {"name": "credentials"},
+                    "data": [
+                        {
+                            "secretKey": "monitoring-token",
+                            "remoteRef": {
+                                "key": "Example App",
+                                "property": "monitoring-token",
+                            },
+                        }
+                    ],
+                },
+            },
+            {
+                "kind": "CloudflareWAFPolicy",
+                "metadata": {"name": "example", "namespace": "example"},
+                "spec": {
+                    "rule": {
+                        "enabled": True,
+                        "expression": 'not any(http.request.headers["x-gatus-token"][*] eq "{{ example:credentials:monitoring-token }}")',
+                    }
+                },
+            },
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            manifests = Path(directory)
+            apps = manifests / "apps/overlays/mbk.yaml"
+            platform = manifests / "clusters/mbk/platform.yaml"
+            apps.parent.mkdir(parents=True)
+            platform.parent.mkdir(parents=True)
+            apps.write_text(yaml.safe_dump_all(resources[1:]))
+            platform.write_text(yaml.safe_dump(resources[0]))
+            headers, secrets = RENDER.monitoring_credentials(inventory, manifests)
+            self.assertEqual(
+                list(secrets.values()), ["op://vault-id/Example App/monitoring-token"]
+            )
+            self.assertEqual(
+                headers[route()["monitor"]]["x-gatus-token"],
+                "${" + next(iter(secrets)) + "}",
+            )
+            # A different app is discovered from declarations without a Fly-side entry.
+            resources[1]["spec"]["data"][0]["remoteRef"]["key"] = "Another App"
+            apps.write_text(yaml.safe_dump_all(resources[1:]))
+            _, changed = RENDER.monitoring_credentials(inventory, manifests)
+            self.assertEqual(
+                list(changed.values()), ["op://vault-id/Another App/monitoring-token"]
+            )
+            self.assertNotEqual(set(secrets), set(changed))
+            # Never send the credential to an unrelated monitor host.
+            unrelated = [dict(inventory[0], monitor="https://elsewhere.example.com")]
+            self.assertEqual(
+                RENDER.monitoring_credentials(unrelated, manifests), ({}, {})
+            )
+            private = [dict(inventory[0], cloudflareProxied="false")]
+            self.assertEqual(
+                RENDER.monitoring_credentials(private, manifests), ({}, {})
+            )
+            resources[2]["spec"]["rule"]["enabled"] = False
+            apps.write_text(yaml.safe_dump_all(resources[1:]))
+            self.assertEqual(
+                RENDER.monitoring_credentials(inventory, manifests), ({}, {})
+            )
+            resources[2]["spec"]["rule"]["enabled"] = True
+            resources[1]["spec"]["target"]["template"] = {
+                "data": {"token": "transformed"}
+            }
+            apps.write_text(yaml.safe_dump_all(resources[1:]))
+            with self.assertRaises(ValueError):
+                RENDER.monitoring_credentials(inventory, manifests)
 
 
 class OrderingTest(unittest.TestCase):

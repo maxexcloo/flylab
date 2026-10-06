@@ -18,7 +18,7 @@ routes and service metadata.
    reconciles machine count. Removed secret names are staged for removal.
 
 Fly settings live in `<service>/fly.toml`; `deployment.toml` contains only its
-selection key, certificates and machine count. Adding a service does not require
+selection key, certificates, machine count and required native Fly secret names. Adding a service does not require
 changing shared workflow logic. The old `CONFIG` repository variable is unused.
 
 ## Development
@@ -77,6 +77,15 @@ endpoint fields before generation; omitted URLs simply stop producing probes.
 Overrides cannot rename or redirect a probe. HTTPS probes check certificate expiry;
 HTTP probes omit that condition. Existing five-failure/five-recovery mail thresholds
 are retained. Redlib retains its disabled alerts and `X-Gatus-Token` bypass.
+
+Monitoring credentials are discovered from enabled `CloudflareWAFPolicy` header
+comparisons and direct `ExternalSecret` data mappings in the rendered cluster
+manifests. The corresponding `ClusterSecretStore` or `SecretStore` identifies the
+1Password vault. Headers are added only to proxied routes in the policy's namespace
+whose monitor hostname belongs to that route. Generated environment-variable names
+and secret references live only in `.render/`; adding a protected app needs no
+Fly-side credential entry. Secret-store selection must identify one vault, and
+transformed Secret templates are rejected. Only GitHub Actions resolves values.
 Obsolete catalogue URLs and old infrastructure names are no longer generated.
 
 After a validated Homelab or Kubelab push, its workflow dispatches this repo with
@@ -91,9 +100,13 @@ configuration, not Flux readiness.
 - **GitHub dispatch**: configure `FLY_DEPLOY_TOKEN` in Homelab and Kubelab with Actions write
   access to `maxexcloo/homelab-fly`. Its ordinary repository token cannot dispatch
   a workflow here. Install this receiving workflow before the source-repository changes.
-- **1Password**: `OP_SERVICE_ACCOUNT_TOKEN` must read the retained Gatus mail and
-  Tailscale references and `Cluster: syd/Redlib/monitoring-token`, as declared in
-  `gatus/secrets.env`. Keep the Gatus mail credential sending-only.
+- **1Password**: `OP_SERVICE_ACCOUNT_TOKEN` reads the app vaults discovered from
+  Kubelab. Give it read-only access to the cluster vaults; new apps within those
+  vaults need no service-account changes.
+- **Runtime**: `MAIL_PASSWORD` and `TAILSCALE_AUTH_KEY` are native Fly secrets,
+  declared in `gatus/deployment.toml`. Deployment requires and preserves them.
+  They are not fetched from the deleted legacy vault. Keep the mail credential
+  sending-only.
 
 Tailscale remains in the Fly container for private reachability. Deploying a new
 inventory still requires working DNS, Tailscale grants and valid credentials;
