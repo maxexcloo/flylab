@@ -19,6 +19,14 @@ on:
         description: Deployment key or app name
         required: false
         type: string
+      homelab_revision:
+        description: Homelab commit SHA (defaults to current main)
+        required: false
+        type: string
+      kubelab_revision:
+        description: Kubelab commit SHA (defaults to current main)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -43,11 +51,9 @@ jobs:
         uses: jdx/mise-action@v5
         with:
           install_args: uv
-          version: 2026.10.1
+          version: 2026.10.3
       - name: Select deployments
         id: select
-        env:
-          CONFIG: ${{ vars.CONFIG }}
         run: uv run --no-project .github/scripts/select-deployments.py
 
   reconcile:
@@ -64,7 +70,6 @@ jobs:
       group: fly-${{ matrix.deployment.app }}
     env:
       DEPLOYMENT: ${{ toJSON(matrix.deployment) }}
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -73,13 +78,22 @@ jobs:
       - name: Set up tools
         uses: jdx/mise-action@v5
         with:
-          install_args: 1password-cli flyctl gomplate uv
-          version: 2026.10.1
+          version: 2026.10.3
+      - name: Render
+        if: matrix.deployment.action == 'deploy'
+        env:
+          HOMELAB_REVISION: ${{ inputs.homelab_revision }}
+          KUBELAB_REVISION: ${{ inputs.kubelab_revision }}
+          SERVICE_DIRECTORY: ${{ matrix.deployment.directory }}
+        run: mise run render "$SERVICE_DIRECTORY"
       - name: Delete
         if: matrix.deployment.action == 'delete'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: uv run --no-project .github/scripts/fly.py
       - name: Deploy
         if: matrix.deployment.action == 'deploy'
         env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         run: uv run --no-project .github/scripts/fly.py

@@ -1,0 +1,20 @@
+alerting:
+  email:
+    from: gatus-fly@excloo.dev
+    host: smtp.resend.com
+    password: ${MAIL_PASSWORD}
+    port: 465
+    to: max@excloo.com
+    username: resend
+    default-alert:
+      description: Gatus Check Failed
+      failure-threshold: 5
+      send-on-resolved: true
+      success-threshold: 5
+ui:
+  dashboard-heading: Gatus
+  dashboard-subheading: Health Monitoring & Status Page
+  default-sort-by: group
+  description: Health Monitoring & Status Page
+  header: Gatus
+  title: Gatus

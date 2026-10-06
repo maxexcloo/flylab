@@ -24,7 +24,7 @@ jobs:
       - name: Set up tools
         uses: jdx/mise-action@v5
         with:
-          install_args: actionlint hadolint prek prettier ruff shellcheck
+          install_args: actionlint hadolint prek prettier ruff shellcheck uv
           version: 2026.10.1
       - name: Run checks
         run: mise run check

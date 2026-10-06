@@ -25,6 +25,12 @@ repos:
         entry: mise exec -- actionlint
         files: ^\.github/workflows/.*\.yaml$
         language: system
+      - id: gatus-tests
+        name: Check Gatus inventory conversion
+        entry: mise exec -- uv run --no-project --with pyyaml==6.0.3 python -m unittest discover -s gatus/tests
+        files: ^(gatus/|\.github/scripts/)
+        language: system
+        pass_filenames: false
       - id: hadolint
         name: Lint Dockerfiles
         entry: mise exec -- hadolint

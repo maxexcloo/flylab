@@ -2,13 +2,14 @@
 1password-cli = "2.40.0"
 actionlint = "1.7.12"
 flyctl = "0.4.111"
-gomplate = "5.2.0"
 hadolint = "2.15.1"
+kustomize = "5.8.2"
 prek = "0.5.4"
 prettier = "3.9.9"
 ruff = "0.16.10"
 shellcheck = "0.11.0"
 uv = "0.12.23"
+yq = "4.54.1"
 
 [tasks.check]
 description = "Run all repository checks"
@@ -30,6 +31,11 @@ prettier --write .
 ruff check --fix --select I .
 ruff format .
 """
+
+[tasks.render]
+description = "Render a service without resolving secrets or deploying"
+run = 'uv run --no-project .github/scripts/fly.py --render "$usage_service"'
+usage = 'arg "<service>"'
 
 [tasks.setup]
 description = "Install Git hooks"

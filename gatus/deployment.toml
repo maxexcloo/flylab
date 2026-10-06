@@ -1,0 +1,3 @@
+certificates = ["status.excloo.com"]
+key = "gatus-fly"
+machine_count = 1

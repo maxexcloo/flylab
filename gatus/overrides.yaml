@@ -1,0 +1,7 @@
+https://reddit.excloo.com:
+  alerts: []
+  headers:
+    X-Gatus-Token: ${MONITORING_TOKEN_REDLIB}
+# Mandu is an optional workstation, not an always-on server.
+icmp://mandu.mbk.excloo.net:
+  enabled: false
