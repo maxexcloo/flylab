@@ -15,12 +15,8 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import tomllib
 import yaml
-
-HEADER_SECRET_PATTERN = re.compile(
-    r'http\.request\.headers\["([^"\n]+)"\]\[\*\] eq "'
-    r'\{\{\s*([a-z0-9-]+):([a-z0-9-]+):([a-zA-Z0-9_.-]+)\s*\}\}"'
-)
 
 
 def domain_group(url, zones):
@@ -41,7 +37,7 @@ def endpoints(inventory, zones):
     probes = {}
     urls = {}
     for entry in inventory:
-        if entry.get("type") not in {"homepage", "route"}:
+        if entry.get("type") not in {"machine", "route", "fly"}:
             raise ValueError("Unsupported inventory entry")
         for field in ("group", "monitor", "name", "source"):
             if not isinstance(entry.get(field), str) or not entry[field].strip():
@@ -129,6 +125,61 @@ def infrastructure_endpoints(repository):
     )
 
 
+def machine_service_inventory(repository):
+    """Read explicit machine-service checks without importing dashboard configuration."""
+    machines = yaml.safe_load((repository / "data/machines.yaml").read_text())[
+        "machines"
+    ]
+    domain = yaml.safe_load((repository / "data/domains.yaml").read_text())["domains"][
+        "infrastructure"
+    ]
+    entries = []
+    for network, hosts in machines.items():
+        for name, machine in hosts.items():
+            if machine.get("monitoring", True) is False:
+                continue
+            services = dict(machine.get("services", {}))
+            if "management_port" in machine:
+                services["management"] = dict(
+                    machine.get("management", {}),
+                    scheme="https",
+                    port=machine["management_port"],
+                )
+            for service_name, service in services.items():
+                monitoring = service.get("monitoring", False)
+                if type(monitoring) is not bool:
+                    raise ValueError(
+                        f"Invalid service monitoring setting: {name}/{service_name}"
+                    )
+                if not monitoring:
+                    continue
+                scheme, port = service["scheme"], service["port"]
+                if (
+                    scheme not in {"http", "https"}
+                    or type(port) is not int
+                    or not 1 <= port <= 65535
+                ):
+                    raise ValueError(
+                        f"Invalid machine service endpoint: {name}/{service_name}"
+                    )
+                host = f"{machine.get('hostname', name)}.{network}.{domain}"
+                suffix = (
+                    ""
+                    if (scheme, port) in {("http", 80), ("https", 443)}
+                    else f":{port}"
+                )
+                entries.append(
+                    {
+                        "group": "Infrastructure",
+                        "monitor": f"{scheme}://{host}{suffix}",
+                        "name": service.get("name", f"{name} {service_name}"),
+                        "source": f"Homelab/{network}/{name}/{service_name}",
+                        "type": "machine",
+                    }
+                )
+    return entries
+
+
 def monitoring_credentials(inventory, manifests):
     headers = {}
     secrets = {}
@@ -164,77 +215,72 @@ def monitoring_credentials(inventory, manifests):
                 if key in external_secrets:
                     raise ValueError(f"Multiple ExternalSecrets target {key}")
                 external_secrets[key] = resource
-        for policy in (
-            resource
-            for resource in resources
-            if resource["kind"] == "CloudflareWAFPolicy"
-        ):
-            rule = policy["spec"]["rule"]
-            if not rule.get("enabled", True):
+        for entry in inventory:
+            if entry.get("cluster") != cluster or not entry.get("headers"):
                 continue
-            matches = HEADER_SECRET_PATTERN.findall(rule["expression"])
-            if not matches:
-                if (
-                    "http.request.headers" in rule["expression"]
-                    and "{{" in rule["expression"]
-                ):
-                    raise ValueError("Unsupported WAF monitoring header comparison")
-                continue
-            for entry in inventory:
-                if (
-                    entry["cluster"] != cluster
-                    or entry["namespace"] != policy["metadata"]["namespace"]
-                    or entry["cloudflareProxied"] != "true"
-                    or urlsplit(entry["monitor"]).hostname not in entry["hostnames"]
-                ):
-                    continue
-                for header, namespace, secret_name, field in matches:
-                    resource = external_secrets[(namespace, secret_name)]
-                    spec = resource["spec"]
-                    if spec.get("target", {}).get("template"):
-                        raise ValueError(
-                            "Monitoring secrets must use direct ExternalSecret data mappings"
-                        )
-                    store = spec["secretStoreRef"]
-                    kind = store.get("kind", "SecretStore")
-                    store_namespace = namespace if kind == "SecretStore" else ""
-                    vaults = stores[(kind, store_namespace, store["name"])]["spec"][
-                        "provider"
-                    ]["onepassword"]["vaults"]
-                    if len(vaults) != 1:
-                        raise ValueError(
-                            "Monitoring secrets require exactly one 1Password vault"
-                        )
-                    mappings = [
-                        data
-                        for data in spec.get("data", [])
-                        if data["secretKey"] == field
-                    ]
-                    if len(mappings) != 1 or "sourceRef" in mappings[0]:
-                        raise ValueError(
-                            f"Unsupported monitoring secret mapping: {namespace}/{secret_name}/{field}"
-                        )
-                    remote = mappings[0]["remoteRef"]
-                    reference = f"op://{next(iter(vaults))}/{remote['key']}/{remote['property']}"
-                    if not re.fullmatch(r"op://[a-zA-Z0-9_./ -]+", reference):
-                        raise ValueError(
-                            "Unsupported characters in monitoring secret reference; use item IDs"
-                        )
-                    name = (
-                        "GATUS_HEADER_"
-                        + hashlib.sha256(reference.encode()).hexdigest()[:16].upper()
+            if urlsplit(entry["monitor"]).hostname not in entry["hostnames"]:
+                raise ValueError(
+                    "Monitoring credentials must target the declaring route"
+                )
+            namespace = entry["namespace"]
+            if not isinstance(entry["headers"], dict):
+                raise TypeError(
+                    "Monitoring headers must map names to Secret references"
+                )
+            for header, reference in entry["headers"].items():
+                if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9a-zA-Z-]+", header):
+                    raise ValueError("Invalid monitoring header name")
+                if not isinstance(reference, dict) or set(reference) != {"name", "key"}:
+                    raise ValueError(
+                        "Monitoring headers require a namespace-local Secret name and key"
                     )
-                    value = "${" + name + "}"
-                    endpoint_headers = headers.setdefault(entry["monitor"], {})
-                    if (
-                        header.lower() in endpoint_headers
-                        and endpoint_headers[header.lower()] != value
-                    ):
-                        raise ValueError(
-                            f"Conflicting monitoring header: {entry['monitor']}"
-                        )
-                    endpoint_headers[header.lower()] = value
-                    secrets[name] = reference
+                secret_name, field = reference["name"], reference["key"]
+                resource = external_secrets[(namespace, secret_name)]
+                spec = resource["spec"]
+                if spec.get("target", {}).get("template"):
+                    raise ValueError(
+                        "Monitoring secrets must use direct ExternalSecret data mappings"
+                    )
+                store = spec["secretStoreRef"]
+                kind = store.get("kind", "SecretStore")
+                store_namespace = namespace if kind == "SecretStore" else ""
+                vaults = stores[(kind, store_namespace, store["name"])]["spec"][
+                    "provider"
+                ]["onepassword"]["vaults"]
+                if len(vaults) != 1:
+                    raise ValueError(
+                        "Monitoring secrets require exactly one 1Password vault"
+                    )
+                mappings = [
+                    data for data in spec.get("data", []) if data["secretKey"] == field
+                ]
+                if len(mappings) != 1 or "sourceRef" in mappings[0]:
+                    raise ValueError(
+                        f"Unsupported monitoring secret mapping: {namespace}/{secret_name}/{field}"
+                    )
+                remote = mappings[0]["remoteRef"]
+                reference = (
+                    f"op://{next(iter(vaults))}/{remote['key']}/{remote['property']}"
+                )
+                if not re.fullmatch(r"op://[a-zA-Z0-9_./ -]+", reference):
+                    raise ValueError(
+                        "Unsupported characters in monitoring secret reference; use item IDs"
+                    )
+                name = (
+                    "GATUS_HEADER_"
+                    + hashlib.sha256(reference.encode()).hexdigest()[:16].upper()
+                )
+                value = "${" + name + "}"
+                endpoint_headers = headers.setdefault(entry["monitor"], {})
+                if (
+                    header.lower() in endpoint_headers
+                    and endpoint_headers[header.lower()] != value
+                ):
+                    raise ValueError(
+                        f"Conflicting monitoring header: {entry['monitor']}"
+                    )
+                endpoint_headers[header.lower()] = value
+                secrets[name] = reference
     return headers, secrets
 
 
@@ -291,7 +337,6 @@ def render(repository, homelab, output):
                 [
                     "bash",
                     "scripts/render_service_inventory.sh",
-                    "--include-static",
                     "--manifest-directory",
                     directory,
                 ],
@@ -305,6 +350,18 @@ def render(repository, homelab, output):
         yaml.safe_load(path.read_text())["name"]
         for path in sorted((homelab / "data/dns").glob("*.yaml"))
     ]
+    inventory.extend(machine_service_inventory(homelab))
+    deployment = tomllib.loads((Path(__file__).parent / "deployment.toml").read_text())
+    inventory.extend(
+        {
+            "group": "Operations",
+            "monitor": f"https://{hostname}",
+            "name": "Gatus",
+            "source": "Flylab/gatus/deployment.toml",
+            "type": "fly",
+        }
+        for hostname in deployment["certificates"]
+    )
     probes = endpoints(inventory, zones)
     for probe in probes:
         if probe["url"] in headers:

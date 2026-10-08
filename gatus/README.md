@@ -6,14 +6,12 @@ metadata. See the [Flylab README](../README.md) for shared deployment tooling.
 
 ## Credentials
 
-Monitoring credentials are discovered from enabled `CloudflareWAFPolicy` header
-comparisons and direct `ExternalSecret` data mappings in the rendered cluster
-manifests. The corresponding `ClusterSecretStore` or `SecretStore` identifies the
-1Password vault. Headers are added only to proxied routes in the policy's namespace
-whose monitor hostname belongs to that route. Generated environment-variable names
-and secret references live only in `.render/`; adding a protected app needs no
-Fly-side credential entry. Secret-store selection must identify one vault, and
-transformed Secret templates are rejected. Only GitHub Actions resolves values.
+Monitoring headers are explicitly declared on Kubelab routes with
+`monitoring.excloo.dev/headers`, a JSON mapping of header names to namespace-local
+Secret `name` and `key` references. Direct ExternalSecret mappings and their
+SecretStore identify the 1Password item and vault. WAF expressions are not parsed.
+Credentials are restricted to the declaring route’s hostnames; transformed Secret
+templates are rejected. Only GitHub Actions resolves values.
 
 - **1Password**: `OP_SERVICE_ACCOUNT_TOKEN` reads the app vaults discovered from
   Kubelab. Give it read-only access to Flylab and the cluster vaults; new apps within those
@@ -43,15 +41,17 @@ configuration, not Flux readiness.
 
 ## Inventory
 
-`gatus/render.py` runs Kubelab's `scripts/render_service_inventory.sh --include-static`.
-The inventory derives monitors from rendered HTTPRoutes, supported HelmRelease
-routes and Homepage's static `siteMonitor` entries. Kubelab's Homepage resolver
-expands machine references using the same Homelab checkout selected for this
-deployment, so links, widget URLs and checks share Homelab's endpoint declarations. No running cluster or Homepage
-API is required. Services are grouped by their longest matching Homelab DNS zone.
-Route names include their current cluster, for example `Grafana (MBK)` and
-`Grafana (SYD)`. Missing metadata, unknown DNS zones, invalid URLs, conflicting
-duplicates and an empty route inventory stop deployment.
+`gatus/render.py` runs Kubelab's `scripts/render_service_inventory.sh`.
+Routes opt into monitoring with `monitoring.excloo.dev/enabled: "true"`, independently
+of Homepage visibility. HTTPS checks derive from the primary route hostname;
+optional `monitoring.excloo.dev/path` and `/url` override the probe target.
+Homelab machine services opt in with `management.monitoring: true` or
+`services.<name>.monitoring: true`; their scheme, port and optional display name
+live beside the endpoint. Gatus's own hostname comes from `deployment.toml`.
+No Homepage configuration, running cluster API or OpenTofu state is read.
+Services are grouped by the longest matching Homelab DNS zone. Route names retain
+cluster suffixes. Invalid URLs, conflicting duplicates and an empty route inventory
+stop deployment.
 
 Homelab's `data/machines.yaml` supplies machine identities, network locations,
 types, display groups, monitoring eligibility, Tailscale eligibility and declared public addresses. `data/domains.yaml`
@@ -82,7 +82,7 @@ Homelab and Kubelab. Local configuration controls mail delivery, thresholds and
 UI settings. HTTPS service probes check certificate expiry; HTTP probes omit
 that condition. Mail alerts require five consecutive failures or recoveries.
 Kubelab routes can set `monitoring.excloo.dev/alerts: "false"` to suppress their
-alerts. WAF bypass headers are discovered independently from the alert setting.
+alerts. Explicit header references are independent of the alert setting.
 
 ## Rendering
 

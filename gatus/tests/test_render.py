@@ -37,7 +37,7 @@ class EndpointsTest(unittest.TestCase):
     def test_empty_and_unsupported_inventories_fail(self):
         for inventory in (
             [],
-            [route(type="homepage")],
+            [route(type="machine")],
             [route(), route(type="unknown")],
             [route(cluster=None)],
             [route(name="")],
@@ -80,7 +80,7 @@ class EndpointsTest(unittest.TestCase):
                     group="Appliances",
                     monitor="http://nas.example.com:8080",
                     name="NAS",
-                    type="homepage",
+                    type="machine",
                 ),
             ],
             ["example.com"],
@@ -145,11 +145,65 @@ class InfrastructureTest(unittest.TestCase):
             )
 
 
+class MachineServicesTest(unittest.TestCase):
+    def test_only_declared_services_are_monitored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repository = Path(directory)
+            (repository / "data").mkdir()
+            (repository / "data/domains.yaml").write_text(
+                "domains: {infrastructure: example.net}\n"
+            )
+            (repository / "data/machines.yaml").write_text(
+                yaml.safe_dump(
+                    {
+                        "machines": {
+                            "lab": {
+                                "storage": {
+                                    "hostname": "renamed",
+                                    "management_port": 8443,
+                                    "management": {
+                                        "name": "Console",
+                                        "monitoring": True,
+                                    },
+                                    "services": {
+                                        "sync": {
+                                            "name": "Sync",
+                                            "monitoring": True,
+                                            "scheme": "http",
+                                            "port": 80,
+                                        },
+                                        "hidden": {"scheme": "http", "port": 1234},
+                                    },
+                                },
+                                "offline": {
+                                    "monitoring": False,
+                                    "management_port": 443,
+                                    "management": {"monitoring": True},
+                                },
+                            }
+                        }
+                    }
+                )
+            )
+            entries = RENDER.machine_service_inventory(repository)
+            self.assertEqual(
+                {entry["name"]: entry["monitor"] for entry in entries},
+                {
+                    "Console": "https://renamed.lab.example.net:8443",
+                    "Sync": "http://renamed.lab.example.net",
+                },
+            )
+            self.assertFalse(any(entry["type"] == "homepage" for entry in entries))
+
+
 class MonitoringCredentialsTest(unittest.TestCase):
-    def test_discovery_follows_waf_and_external_secret_references(self):
+    def test_explicit_headers_follow_external_secret_references(self):
         inventory = [
             route(
                 namespace="example",
+                headers={
+                    "x-gatus-token": {"name": "credentials", "key": "monitoring-token"}
+                },
                 cloudflareProxied="true",
                 hostnames=["media.example.com"],
             )
@@ -215,21 +269,27 @@ class MonitoringCredentialsTest(unittest.TestCase):
                 list(changed.values()), ["op://vault-id/Another App/monitoring-token"]
             )
             self.assertNotEqual(set(secrets), set(changed))
-            # Never send the credential to an unrelated monitor host.
+            # Header credentials cannot leave the declaring route's hostnames.
             unrelated = [dict(inventory[0], monitor="https://elsewhere.example.com")]
-            self.assertEqual(
-                RENDER.monitoring_credentials(unrelated, manifests), ({}, {})
-            )
+            with self.assertRaises(ValueError):
+                RENDER.monitoring_credentials(unrelated, manifests)
+            # Private routes can explicitly request credentials too; WAF syntax is irrelevant.
             private = [dict(inventory[0], cloudflareProxied="false")]
             self.assertEqual(
-                RENDER.monitoring_credentials(private, manifests), ({}, {})
+                RENDER.monitoring_credentials(private, manifests)[1], changed
             )
+            resources[2]["spec"]["rule"]["expression"] = "arbitrary WAF policy"
             resources[2]["spec"]["rule"]["enabled"] = False
             apps.write_text(yaml.safe_dump_all(resources[1:]))
             self.assertEqual(
-                RENDER.monitoring_credentials(inventory, manifests), ({}, {})
+                RENDER.monitoring_credentials(inventory, manifests)[1], changed
             )
-            resources[2]["spec"]["rule"]["enabled"] = True
+            self.assertEqual(
+                RENDER.monitoring_credentials(
+                    [dict(inventory[0], headers={})], manifests
+                ),
+                ({}, {}),
+            )
             resources[1]["spec"]["target"]["template"] = {
                 "data": {"token": "transformed"}
             }
