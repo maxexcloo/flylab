@@ -1,4 +1,3 @@
-import copy
 import importlib.util
 import tempfile
 import unittest
@@ -33,7 +32,7 @@ class EndpointsTest(unittest.TestCase):
             route(cluster="syd"),
         ):
             with self.subTest(entry=entry), self.assertRaises(ValueError):
-                RENDER.endpoints([route(), entry], {}, ["example.com"])
+                RENDER.endpoints([route(), entry], ["example.com"])
 
     def test_empty_and_unsupported_inventories_fail(self):
         for inventory in (
@@ -44,12 +43,10 @@ class EndpointsTest(unittest.TestCase):
             [route(name="")],
         ):
             with self.subTest(inventory=inventory), self.assertRaises(ValueError):
-                RENDER.endpoints(inventory, {}, ["example.com"])
+                RENDER.endpoints(inventory, ["example.com"])
 
     def test_equivalent_duplicates_are_collapsed(self):
-        self.assertEqual(
-            len(RENDER.endpoints([route(), route()], {}, ["example.com"])), 1
-        )
+        self.assertEqual(len(RENDER.endpoints([route(), route()], ["example.com"])), 1)
 
     def test_invalid_urls_fail(self):
         for url in (
@@ -62,28 +59,17 @@ class EndpointsTest(unittest.TestCase):
             "https://media.example.com/#fragment",
         ):
             with self.subTest(url=url), self.assertRaises(ValueError):
-                RENDER.endpoints([route(monitor=url)], {}, ["example.com"])
+                RENDER.endpoints([route(monitor=url)], ["example.com"])
 
-    def test_override_keeps_secret_reference_and_disabled_alerts(self):
-        overrides = {
-            "https://media.example.com": {
-                "alerts": [],
-                "headers": {"X-Gatus-Token": "${GATUS_HEADER_EXAMPLE}"},
-            }
-        }
-        before = copy.deepcopy(overrides)
-        probe = RENDER.endpoints([route()], overrides, ["example.com"])[0]
+    def test_alert_policy_comes_from_inventory(self):
+        probe = RENDER.endpoints([route(alerts="false")], ["example.com"])[0]
         self.assertEqual(probe["alerts"], [])
-        self.assertEqual(probe["headers"], overrides[probe["url"]]["headers"])
-        self.assertEqual(overrides, before)
-
-    def test_overrides_cannot_change_identity(self):
+        self.assertEqual(
+            RENDER.endpoints([route(alerts="true")], ["example.com"])[0]["alerts"],
+            [{"type": "email"}],
+        )
         with self.assertRaises(ValueError):
-            RENDER.endpoints(
-                [route()],
-                {route()["monitor"]: {"url": "http://other"}},
-                ["example.com"],
-            )
+            RENDER.endpoints([route(alerts="typo")], ["example.com"])
 
     def test_route_and_static_monitor_conditions(self):
         probes = RENDER.endpoints(
@@ -97,7 +83,6 @@ class EndpointsTest(unittest.TestCase):
                     type="homepage",
                 ),
             ],
-            {},
             ["example.com"],
         )
         self.assertEqual(
@@ -119,37 +104,43 @@ class InfrastructureTest(unittest.TestCase):
             machines = {
                 "mbk": {
                     "backup": {"type": "backup", "public_ipv4": "192.0.2.1"},
-                    "desktop": {"type": "server"},
+                    "desktop": {"type": "server", "monitoring": False},
                     "laptop": {"platform": "macos"},
                     "sensor": {"type": "appliance", "tailscale": {"enabled": False}},
                     "server": {
                         "hostname": "renamed",
-                        "type": "vm",
+                        "type": "custom",
                         "tailscale": {"network_prefix": False},
                     },
                 },
             }
             (repository / "data/machines.yaml").write_text(
-                yaml.safe_dump({"machines": machines})
+                yaml.safe_dump(
+                    {
+                        "machines": machines,
+                        "types": {
+                            "appliance": "Appliances",
+                            "backup": "Servers",
+                            "custom": "Custom",
+                            "server": "Servers",
+                        },
+                    }
+                )
             )
-            probes = RENDER.infrastructure_endpoints(
-                repository,
-                {
-                    "icmp://desktop.mbk.example.net": {"enabled": False},
-                },
-            )
+            probes = RENDER.infrastructure_endpoints(repository)
             self.assertEqual(
                 [probe["url"] for probe in probes],
                 [
                     "icmp://192.0.2.1",
-                    "icmp://backup.mbk.example.net",
                     "icmp://renamed.mbk.example.net",
+                    "icmp://backup.mbk.example.net",
                 ],
             )
             self.assertEqual(probes[0]["group"], "External (Servers)")
-            self.assertEqual(probes[2]["name"], "renamed (mbk)")
+            self.assertEqual(probes[1]["group"], "Internal (Custom)")
+            self.assertEqual(probes[1]["name"], "renamed (mbk)")
             self.assertEqual(
-                probes[2]["conditions"],
+                probes[1]["conditions"],
                 ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
             )
 
@@ -267,7 +258,6 @@ class OrderingTest(unittest.TestCase):
                 route(name="AI", monitor="https://ai.example.com"),
                 route(name="Private", monitor="https://private.example.net"),
             ],
-            {},
             ["example.com", "example.net"],
         )
         self.assertEqual(
@@ -280,3 +270,48 @@ class OrderingTest(unittest.TestCase):
                 ("example.net", "Private (mbk)"),
             ],
         )
+
+
+class ProviderEndpointsTest(unittest.TestCase):
+    def test_provider_urls_resolvers_and_domain_come_from_homelab(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repository = Path(directory)
+            (repository / "data").mkdir()
+            (repository / "data/domains.yaml").write_text(
+                "domains:\n  infrastructure: example.net\n"
+            )
+            source = repository / "data/providers.yaml"
+            source.write_text(
+                yaml.safe_dump(
+                    {
+                        "providers": {
+                            "Example": {
+                                "url": "https://provider.example.com",
+                                "dns": "192.0.2.53",
+                            }
+                        }
+                    }
+                )
+            )
+            probes = RENDER.provider_endpoints(repository)
+            self.assertEqual(
+                [probe["name"] for probe in probes], ["Example", "Example DNS"]
+            )
+            self.assertEqual(probes[0]["url"], "https://provider.example.com")
+            self.assertEqual(probes[1]["url"], "192.0.2.53")
+            self.assertEqual(
+                probes[1]["dns"], {"query-name": "example.net", "query-type": "A"}
+            )
+            source.write_text(
+                yaml.safe_dump(
+                    {
+                        "providers": {
+                            "Different": {"url": "https://different.example.com"}
+                        }
+                    }
+                )
+            )
+            self.assertEqual(
+                [probe["name"] for probe in RENDER.provider_endpoints(repository)],
+                ["Different"],
+            )

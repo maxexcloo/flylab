@@ -9,7 +9,7 @@ force_https = true
 internal_port = 8080
 
 [[http_service.checks]]
-grace_period = "10s"
+grace_period = "90s"
 interval = "30s"
 method = "GET"
 path = "/health"

@@ -1,5 +1,0 @@
-https://reddit.excloo.com:
-  alerts: []
-# Mandu is an optional workstation, not an always-on server.
-icmp://mandu.mbk.excloo.net:
-  enabled: false

@@ -8,10 +8,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  cancel-in-progress: true
-  group: prek-${{ github.workflow }}-${{ github.ref }}
-
 jobs:
   prek:
     name: Prek

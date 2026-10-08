@@ -29,7 +29,8 @@ transformed Secret templates are rejected. Only GitHub Actions resolves values.
 
 Tailscale runs in the Fly container for private reachability. Deploying a new
 inventory still requires working DNS, Tailscale grants and valid credentials;
-an offline render cannot verify those. See [remaining activation checks](../docs/plan.md).
+an offline render cannot verify those. Startup waits up to 60 seconds for Tailscale
+to connect before starting Gatus; connection failure stops startup.
 
 ## Deployment
 
@@ -52,15 +53,20 @@ Route names include their current cluster, for example `Grafana (mbk)` and
 duplicates and an empty route inventory stop deployment.
 
 Homelab's `data/machines.yaml` supplies machine identities, network locations,
-types, Tailscale eligibility and declared public addresses. `data/domains.yaml`
+types, display groups, monitoring eligibility, Tailscale eligibility and declared public addresses. `data/domains.yaml`
 supplies the infrastructure DNS suffix; `data/dns/*.yaml` supplies service groups.
 Typed, Tailscale-enabled machines receive internal ICMP checks using Homelab's
 `<hostname>.<network>.<infrastructure-domain>` convention. Declared public IPs
 receive separate external checks, preferring IPv4 when both families are present.
 No OpenTofu state, provider credentials or resolved device addresses are read.
 Untyped personal devices and Tailscale-disabled private devices are excluded;
-Mandu is explicitly disabled in the overrides because it is an optional workstation.
-The current baseline is eight internal machines and one external check.
+machines with `monitoring: false` are also excluded. The `types` mapping in
+Homelab supplies the display group for each machine type.
+
+Homelab's `data/providers.yaml` supplies provider names, website URLs and optional
+DNS resolver addresses. Kubelab uses the same entries for Homepage bookmarks.
+DNS checks query Homelab's infrastructure domain. Provider website checks accept
+HTTP 200, 401 or 403; resolver checks require a successful DNS response.
 
 ## Monitoring
 
@@ -70,12 +76,12 @@ comes from the group names, not the order of YAML files. The browser can retain 
 user-selected sort or filter. Renaming groups or endpoints changes Gatus history
 keys; memory-only storage also resets on restart.
 
-Gatus combines generated `infrastructure.yaml` and `services.yaml` with checked-in provider/DNS checks,
-mail alerting and UI settings. URL-keyed `gatus/overrides.yaml` applies native Gatus
-endpoint fields before generation; omitted URLs simply stop producing probes.
-Overrides cannot rename or redirect a probe. HTTPS probes check certificate expiry;
-HTTP probes omit that condition. Mail alerts require five consecutive failures or recoveries. Redlib has disabled
-alerts and uses the `X-Gatus-Token` bypass.
+Gatus generates `infrastructure.yaml`, `providers.yaml` and `services.yaml` from
+Homelab and Kubelab. Local configuration controls mail delivery, thresholds and
+UI settings. HTTPS service probes check certificate expiry; HTTP probes omit
+that condition. Mail alerts require five consecutive failures or recoveries.
+Kubelab routes can set `monitoring.excloo.dev/alerts: "false"` to suppress their
+alerts. WAF bypass headers are discovered independently from the alert setting.
 
 ## Rendering
 

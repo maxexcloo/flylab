@@ -4,7 +4,6 @@
 # ///
 
 import argparse
-import copy
 import hashlib
 import ipaddress
 import json
@@ -22,23 +21,6 @@ HEADER_SECRET_PATTERN = re.compile(
     r'http\.request\.headers\["([^"\n]+)"\]\[\*\] eq "'
     r'\{\{\s*([a-z0-9-]+):([a-z0-9-]+):([a-zA-Z0-9_.-]+)\s*\}\}"'
 )
-MACHINE_GROUPS = {
-    "appliance": "Appliances",
-    "backup": "Servers",
-    "router": "Routers",
-    "server": "Servers",
-    "storage": "Servers",
-    "vm": "VMs",
-}
-
-
-def apply_override(probe, overrides):
-    override = overrides.get(probe["url"], {})
-    if not isinstance(override, dict) or any(
-        key in override for key in ("group", "name", "url")
-    ):
-        raise ValueError(f"Invalid override: {probe['url']}")
-    return dict(probe, **copy.deepcopy(override))
 
 
 def domain_group(url, zones):
@@ -51,7 +33,7 @@ def domain_group(url, zones):
     return max(matches, key=len)
 
 
-def endpoints(inventory, overrides, zones):
+def endpoints(inventory, zones):
     if not isinstance(inventory, list) or not any(
         entry.get("type") == "route" for entry in inventory
     ):
@@ -83,7 +65,11 @@ def endpoints(inventory, overrides, zones):
             "alerts": [{"type": "email"}],
             "conditions": conditions,
         }
-        probe = apply_override(probe, overrides)
+        alerts = entry.get("alerts", "true")
+        if alerts not in {"false", "true"}:
+            raise ValueError(f"Invalid monitoring alerts setting: {alerts}")
+        if alerts == "false":
+            probe["alerts"] = []
         identity = (group, name)
         if identity in probes and probes[identity] != probe:
             raise ValueError(f"Conflicting endpoint: {identity}")
@@ -99,10 +85,10 @@ def endpoints(inventory, overrides, zones):
     ]
 
 
-def infrastructure_endpoints(repository, overrides):
-    machines = yaml.safe_load((repository / "data/machines.yaml").read_text())[
-        "machines"
-    ]
+def infrastructure_endpoints(repository):
+    inventory = yaml.safe_load((repository / "data/machines.yaml").read_text())
+    machines = inventory["machines"]
+    groups = inventory["types"]
     domain = yaml.safe_load((repository / "data/domains.yaml").read_text())["domains"][
         "infrastructure"
     ]
@@ -110,9 +96,12 @@ def infrastructure_endpoints(repository, overrides):
     for network, entries in sorted(machines.items()):
         for name, machine in sorted(entries.items()):
             machine_type = machine.get("type")
-            if machine_type is None:
+            monitoring = machine.get("monitoring", True)
+            if type(monitoring) is not bool:
+                raise ValueError(f"Invalid monitoring setting: {name}")
+            if machine_type is None or not monitoring:
                 continue
-            if machine_type not in MACHINE_GROUPS:
+            if machine_type not in groups:
                 raise ValueError(f"Unsupported machine type: {machine_type}")
             hostname = machine.get("hostname", name)
             targets = {}
@@ -122,18 +111,15 @@ def infrastructure_endpoints(repository, overrides):
             if address:
                 targets["External"] = str(ipaddress.ip_address(address))
             for scope, target in targets.items():
-                probe = apply_override(
+                probes.append(
                     {
-                        "group": f"{scope} ({MACHINE_GROUPS[machine_type]})",
+                        "group": f"{scope} ({groups[machine_type]})",
                         "name": f"{hostname} ({network})",
                         "url": f"icmp://{target}",
                         "alerts": [{"type": "email"}],
                         "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
-                    },
-                    overrides,
+                    }
                 )
-                if probe.get("enabled", True):
-                    probes.append(probe)
     if not probes:
         raise ValueError("Expected a non-empty Homelab infrastructure inventory")
     return sorted(
@@ -250,6 +236,46 @@ def monitoring_credentials(inventory, manifests):
     return headers, secrets
 
 
+def provider_endpoints(repository):
+    providers = yaml.safe_load((repository / "data/providers.yaml").read_text())[
+        "providers"
+    ]
+    domain = yaml.safe_load((repository / "data/domains.yaml").read_text())["domains"][
+        "infrastructure"
+    ]
+    probes = []
+    for name, provider in providers.items():
+        validate_url(provider["url"])
+        probes.append(
+            {
+                "group": "Providers",
+                "name": name,
+                "url": provider["url"],
+                "alerts": [{"type": "email"}],
+                "conditions": [
+                    "[STATUS] == any(200, 401, 403)",
+                    "[RESPONSE_TIME] < 5000",
+                ],
+            }
+        )
+        if "dns" in provider:
+            probes.append(
+                {
+                    "group": "Providers",
+                    "name": f"{name} DNS",
+                    "url": str(ipaddress.ip_address(provider["dns"])),
+                    "alerts": [{"type": "email"}],
+                    "conditions": [
+                        "[CONNECTED] == true",
+                        "[DNS_RCODE] == NOERROR",
+                        "[RESPONSE_TIME] < 5000",
+                    ],
+                    "dns": {"query-name": domain, "query-type": "A"},
+                }
+            )
+    return sorted(probes, key=lambda probe: probe["name"].casefold())
+
+
 def render(repository, homelab, output):
     with tempfile.TemporaryDirectory(prefix="gatus-manifests-") as directory:
         manifests = Path(directory)
@@ -273,39 +299,32 @@ def render(repository, homelab, output):
             )
         )
         headers, secrets = monitoring_credentials(inventory, manifests)
-    overrides = yaml.safe_load(Path(__file__).with_name("overrides.yaml").read_text())
     zones = [
         yaml.safe_load(path.read_text())["name"]
         for path in sorted((homelab / "data/dns").glob("*.yaml"))
     ]
-    probes = endpoints(inventory, overrides, zones)
+    probes = endpoints(inventory, zones)
     for probe in probes:
         if probe["url"] in headers:
             probe["headers"] = dict(probe.get("headers", {}), **headers[probe["url"]])
     with (output / "secrets.env").open("a") as secret_file:
         for name, reference in sorted(secrets.items()):
             secret_file.write(f"{name}={{{{ {reference} }}}}\n")
-    infrastructure = infrastructure_endpoints(homelab, overrides)
+    infrastructure = infrastructure_endpoints(homelab)
+    providers = provider_endpoints(homelab)
     config_directory = output / "app/config"
-    for path in sorted(config_directory.glob("*.yaml")):
-        if path.name in {"infrastructure.yaml", "services.yaml"}:
-            continue
-        for probe in yaml.safe_load(path.read_text()).get("endpoints", []):
-            if any(
-                probe["url"] == generated["url"]
-                or (probe["group"], probe["name"])
-                == (generated["group"], generated["name"])
-                for generated in probes + infrastructure
-            ):
-                raise ValueError(f"Static endpoint conflicts with inventory: {path}")
     (config_directory / "services.yaml").write_text(
         yaml.safe_dump({"endpoints": probes}, sort_keys=False)
     )
     (config_directory / "infrastructure.yaml").write_text(
         yaml.safe_dump({"endpoints": infrastructure}, sort_keys=False)
     )
+    (config_directory / "providers.yaml").write_text(
+        yaml.safe_dump({"endpoints": providers}, sort_keys=False)
+    )
     print(
-        f"Rendered {len(probes)} service and {len(infrastructure)} infrastructure probes"
+        f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure "
+        f"and {len(providers)} provider probes"
     )
 
 
