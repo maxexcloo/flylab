@@ -19,12 +19,10 @@ monitored service is healthy.
 
 Remaining work:
 
-1. Populate `op://Homelab/GitHub Actions/homelab-fly-deploy-token` with a GitHub token
-   granting Actions write access only to `maxexcloo/homelab-fly`. Both source
-   repos need a working `OP_SERVICE_ACCOUNT_TOKEN` with read access to that
-   vault. Their standard 1Password Action exposes it as `HOMELAB_FLY_DEPLOY_TOKEN`.
-   Verify both dispatch jobs after provisioning; credential loading is not yet
-   verified.
+1. Set `HOMELAB_FLY_DEPLOY_TOKEN` in both source repositories' Actions secrets.
+   Keep its reference copy at `op://Homelab/GitHub Actions/homelab-fly-deploy-token`.
+   The token needs Actions write access only to `maxexcloo/homelab-fly`.
+   Kubelab dispatch is verified; verify Homelab after provisioning its secret.
 2. Investigate the previously observed LaraPaper timeout, bento/nanokvm ICMP
    failures and intermittent Redlib response if they persist.
    These checks follow the source repositories' current declarations.
