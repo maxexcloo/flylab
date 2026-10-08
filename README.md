@@ -1,4 +1,4 @@
-# Homelab Fly.io
+# Flylab
 
 Independent Fly.io services for the homelab. Each service owns its native Fly
 configuration, deployment settings and application files in a root directory.
@@ -103,7 +103,7 @@ configuration, not Flux readiness.
   `HOMELAB_FLY_DEPLOY_TOKEN`. Keep its reference copy at
   `op://Homelab/GitHub Actions/homelab-fly-deploy-token` and update both repository
   secrets when rotating it. The token needs Actions write access only to
-  `maxexcloo/homelab-fly`; it is not a Fly credential.
+  `maxexcloo/flylab`; it is not a Fly credential.
 - **1Password**: `OP_SERVICE_ACCOUNT_TOKEN` reads the app vaults discovered from
   Kubelab. Give it read-only access to the cluster vaults; new apps within those
   vaults need no service-account changes.

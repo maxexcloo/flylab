@@ -1,6 +1,6 @@
 # Activation
 
-Deployment [37408380214](https://github.com/maxexcloo/homelab-fly/actions/runs/37408380214)
+Deployment [37408380214](https://github.com/maxexcloo/flylab/actions/runs/37408380214)
 succeeded on 6 October 2026. The live page contains 57 checks with domain-first
 grouping and Homelab infrastructure. Dynamic 1Password resolution succeeded,
 native Fly mail and Tailscale credentials were preserved, and the obsolete
@@ -21,7 +21,7 @@ Remaining work:
 
 1. Set `HOMELAB_FLY_DEPLOY_TOKEN` in both source repositories' Actions secrets.
    Keep its reference copy at `op://Homelab/GitHub Actions/homelab-fly-deploy-token`.
-   The token needs Actions write access only to `maxexcloo/homelab-fly`.
+   The token needs Actions write access only to `maxexcloo/flylab`.
    Kubelab dispatch is verified; verify Homelab after provisioning its secret.
 2. Investigate the previously observed LaraPaper timeout, bento/nanokvm ICMP
    failures and intermittent Redlib response if they persist.
