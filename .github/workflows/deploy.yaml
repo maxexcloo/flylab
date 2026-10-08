@@ -51,7 +51,7 @@ jobs:
         uses: jdx/mise-action@v5
         with:
           install_args: python uv
-          version: 2026.10.3
+          version: 2026.10.4
       - name: Select deployments
         id: select
         run: uv run --python python --no-project .github/scripts/select-deployments.py
@@ -78,7 +78,7 @@ jobs:
       - name: Set up tools
         uses: jdx/mise-action@v5
         with:
-          version: 2026.10.3
+          version: 2026.10.4
       - name: Render
         if: matrix.deployment.action == 'deploy'
         env:
