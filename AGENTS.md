@@ -2,8 +2,8 @@
 
 ## Structure
 
-- Keep each service implementation in `<service>/`.
-- Keep only `AGENTS.md` and `README.md` as root Markdown files; put other project
+- Keep each service implementation and its `README.md` in `<service>/`.
+- Keep only `AGENTS.md` and `README.md` as root Markdown files; put other repository-wide
   documentation in `docs/`.
 - Keep repository tooling generic; adding a service must not require changing shared workflow logic.
 - Treat `.render/` as ephemeral deployment output.
