@@ -1,7 +1,7 @@
 [tools]
 1password-cli = "2.40.0"
 actionlint = "1.7.12"
-flyctl = "0.4.112"
+flyctl = "0.4.114"
 hadolint = "2.15.1"
 kustomize = "5.8.2"
 prek = "0.5.5"
