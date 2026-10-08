@@ -2,7 +2,7 @@ alerting:
   email:
     from: gatus-fly@excloo.dev
     host: smtp.resend.com
-    password: ${MAIL_PASSWORD}
+    password: ${RESEND_API_KEY}
     port: 465
     to: max@excloo.com
     username: resend

@@ -16,16 +16,17 @@ Fly-side credential entry. Secret-store selection must identify one vault, and
 transformed Secret templates are rejected. Only GitHub Actions resolves values.
 
 - **1Password**: `OP_SERVICE_ACCOUNT_TOKEN` reads the app vaults discovered from
-  Kubelab. Give it read-only access to the cluster vaults; new apps within those
+  Kubelab. Give it read-only access to Flylab and the cluster vaults; new apps within those
   vaults need no service-account changes.
 - **GitHub dispatch**: both source repositories use the Actions secret
   `HOMELAB_FLY_DEPLOY_TOKEN`. Keep its reference copy at
   `op://Homelab/GitHub Actions/homelab-fly-deploy-token` and update both repository
   secrets when rotating it. The token needs Actions write access only to
   `maxexcloo/flylab`; it is not a Fly credential.
-- **Runtime**: `MAIL_PASSWORD` and `TAILSCALE_AUTH_KEY` are native Fly secrets,
-  declared in `gatus/deployment.toml`. Deployment requires and preserves them.
-  Keep the mail credential sending-only.
+- **Runtime**: `gatus/secrets.env` references the shared `Flylab` item in the
+  Flylab vault. Homelab manages its sending-only `RESEND_API_KEY` and scoped
+  `TAILSCALE_OAUTH_CLIENT_SECRET`. Deployment imports both into Fly secrets.
+  Tailscale obtains registration keys automatically for `tag:flylab`.
 
 Tailscale runs in the Fly container for private reachability. Deploying a new
 inventory still requires working DNS, Tailscale grants and valid credentials;
