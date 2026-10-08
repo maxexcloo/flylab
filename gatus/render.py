@@ -54,7 +54,9 @@ def endpoints(inventory, zones):
             cluster = entry.get("cluster")
             if not isinstance(cluster, str) or not cluster:
                 raise ValueError("Route is missing its cluster")
-            name = f"{name} ({cluster})"
+            suffix = f" ({cluster.upper()})"
+            if not name.endswith(suffix):
+                name += suffix
         conditions = ["[RESPONSE_TIME] < 5000", "[STATUS] == any(200, 401)"]
         if urlsplit(url).scheme == "https":
             conditions.insert(0, "[CERTIFICATE_EXPIRATION] > 168h")
@@ -114,7 +116,7 @@ def infrastructure_endpoints(repository):
                 probes.append(
                     {
                         "group": f"{scope} ({groups[machine_type]})",
-                        "name": f"{hostname} ({network})",
+                        "name": f"{network}-{hostname}",
                         "url": f"icmp://{target}",
                         "alerts": [{"type": "email"}],
                         "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],

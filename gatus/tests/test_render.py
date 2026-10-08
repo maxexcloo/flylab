@@ -138,7 +138,7 @@ class InfrastructureTest(unittest.TestCase):
             )
             self.assertEqual(probes[0]["group"], "External (Servers)")
             self.assertEqual(probes[1]["group"], "Internal (Custom)")
-            self.assertEqual(probes[1]["name"], "renamed (mbk)")
+            self.assertEqual(probes[1]["name"], "mbk-renamed")
             self.assertEqual(
                 probes[1]["conditions"],
                 ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
@@ -254,7 +254,7 @@ class OrderingTest(unittest.TestCase):
             [
                 route(cluster="syd", monitor="https://media.syd.example.com"),
                 route(),
-                route(name="Actual", monitor="https://actual.example.com"),
+                route(name="Actual (MBK)", monitor="https://actual.example.com"),
                 route(name="AI", monitor="https://ai.example.com"),
                 route(name="Private", monitor="https://private.example.net"),
             ],
@@ -263,11 +263,11 @@ class OrderingTest(unittest.TestCase):
         self.assertEqual(
             [(p["group"], p["name"]) for p in probes],
             [
-                ("example.com", "Actual (mbk)"),
-                ("example.com", "AI (mbk)"),
-                ("example.com", "Media (mbk)"),
-                ("example.com", "Media (syd)"),
-                ("example.net", "Private (mbk)"),
+                ("example.com", "Actual (MBK)"),
+                ("example.com", "AI (MBK)"),
+                ("example.com", "Media (MBK)"),
+                ("example.com", "Media (SYD)"),
+                ("example.net", "Private (MBK)"),
             ],
         )
 

@@ -49,8 +49,8 @@ routes and Homepage's static `siteMonitor` entries. Kubelab's Homepage resolver
 expands machine references using the same Homelab checkout selected for this
 deployment, so links, widget URLs and checks share Homelab's endpoint declarations. No running cluster or Homepage
 API is required. Services are grouped by their longest matching Homelab DNS zone.
-Route names include their current cluster, for example `Grafana (mbk)` and
-`Grafana (syd)`. Missing metadata, unknown DNS zones, invalid URLs, conflicting
+Route names include their current cluster, for example `Grafana (MBK)` and
+`Grafana (SYD)`. Missing metadata, unknown DNS zones, invalid URLs, conflicting
 duplicates and an empty route inventory stop deployment.
 
 Homelab's `data/machines.yaml` supplies machine identities, network locations,
@@ -100,3 +100,6 @@ HOMELAB_DIRECTORY=../homelab KUBELAB_DIRECTORY=../kubelab mise run render gatus
 Local checkout rendering includes uncommitted changes. These commands resolve no
 secrets and make no deployment changes. Generated output stays under `.render/`;
 `mise run cleanup` removes it. Use `mise run fmt` to format supported files.
+
+Display names use uppercase cluster suffixes for apps and lowercase
+`network-hostname` names for machines. Probe targets retain their native DNS names.
