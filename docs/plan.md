@@ -1,30 +1,23 @@
 # Activation
 
-Deployment [37408380214](https://github.com/maxexcloo/flylab/actions/runs/37408380214)
-succeeded on 6 October 2026. The live page contains 57 checks with domain-first
-grouping and Homelab infrastructure. Dynamic 1Password resolution succeeded,
-native Fly mail and Tailscale credentials were preserved, and the obsolete
-`CONFIG` repository variable was removed.
+Deployment [37710520724](https://github.com/maxexcloo/flylab/actions/runs/37710520724)
+succeeded on 8 October 2026. Both Homelab and Kubelab validation workflows
+successfully dispatched Gatus deployments using their validated revisions.
+The dispatch credential is configured in both source repositories.
 
-Homepage now resolves machine references from Homelab's public inventory every
-five minutes in both clusters. Gatus uses the same resolver with its selected
-Homelab checkout. TrueNAS's link, widget and monitor use the declared management
-port 443; its live check returned HTTP 200 after deployment. Home Assistant add-on
-links remain navigation-only.
+Gatus renders 57 checks from the shared inventory. Dynamic 1Password resolution
+succeeds, and deployment preserves the native Fly mail and Tailscale credentials.
+Homepage resolves machine references from the same Homelab inventory every five
+minutes in both clusters.
 
-Private checks reached hotdog, kimbap, hsp and taco; gateway and hass recovered
-after startup. Redlib returned HTTP 200 with its discovered token, followed by
-HTTP 404 on a subsequent check. Successful deployment does not imply every
-monitored service is healthy.
+Homelab's infrastructure apply completed, and its follow-up plan reported no
+changes. Both Kubernetes clusters reconciled Kubelab commit `516a432`; all Flux
+stages and Helm releases were ready, with no unready Pods.
 
-Remaining work:
+Remaining checks:
 
-1. Set `HOMELAB_FLY_DEPLOY_TOKEN` in both source repositories' Actions secrets.
-   Keep its reference copy at `op://Homelab/GitHub Actions/homelab-fly-deploy-token`.
-   The token needs Actions write access only to `maxexcloo/flylab`.
-   Kubelab dispatch is verified; verify Homelab after provisioning its secret.
-2. Investigate the previously observed LaraPaper timeout, bento/nanokvm ICMP
-   failures and intermittent Redlib response if they persist.
-   These checks follow the source repositories' current declarations.
-3. Verify mail delivery during a genuine failure and recovery. Delivery has not
+1. Restore connectivity to Bento and NanoKVM. Both fail LAN and Tailscale
+   reachability checks. Tailscale last saw Bento on 3 September and NanoKVM on
+   5 October 2026. Their monitoring remains enabled.
+2. Verify mail delivery during a genuine failure and recovery. Delivery has not
    been tested as part of this deployment; existing alert thresholds are retained.
