@@ -3,7 +3,7 @@
 actionlint = "1.7.12"
 flyctl = "0.4.114"
 hadolint = "2.15.1"
-kustomize = "5.8.2"
+kustomize = "5.8.3"
 prek = "0.5.5"
 prettier = "3.9.9"
 python = "3.14.8"
