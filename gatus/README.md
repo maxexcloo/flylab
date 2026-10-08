@@ -23,8 +23,8 @@ transformed Secret templates are rejected. Only GitHub Actions resolves values.
   `op://Homelab/GitHub Actions/homelab-fly-deploy-token` and update both repository
   secrets when rotating it. The token needs Actions write access only to
   `maxexcloo/flylab`; it is not a Fly credential.
-- **Runtime**: `gatus/secrets.env` references the shared `Flylab` item in the
-  Flylab vault. Homelab manages its sending-only `RESEND_API_KEY` and scoped
+- **Runtime**: `gatus/secrets.env` references the `Resend` and `Tailscale OAuth Client`
+  items in the Flylab vault. Homelab manages the sending-only `RESEND_API_KEY` and scoped
   `TAILSCALE_OAUTH_CLIENT_SECRET`. Deployment imports both into Fly secrets.
   Tailscale obtains registration keys automatically for `tag:flylab`.
 
