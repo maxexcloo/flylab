@@ -99,8 +99,8 @@ configuration, not Flux readiness.
 ### Credentials & Activation
 
 - **Fly**: `FLY_API_TOKEN` is a GitHub Actions secret here.
-- **GitHub dispatch**: source workflows load `GH_WORKFLOW_TOKEN` from
-  `op://Homelab/GitHub Actions/workflow-token` through the standard 1Password
+- **GitHub dispatch**: source workflows load `HOMELAB_FLY_DEPLOY_TOKEN` from
+  `op://Homelab/GitHub Actions/homelab-fly-deploy-token` through the standard 1Password
   Action. Each source repo needs `OP_SERVICE_ACCOUNT_TOKEN` with read access to
   that vault. The GitHub token needs Actions write access only to
   `maxexcloo/homelab-fly`; it is not a Fly credential. Install this receiving

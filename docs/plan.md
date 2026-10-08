@@ -19,10 +19,10 @@ monitored service is healthy.
 
 Remaining work:
 
-1. Populate `op://Homelab/GitHub Actions/workflow-token` with a GitHub token
+1. Populate `op://Homelab/GitHub Actions/homelab-fly-deploy-token` with a GitHub token
    granting Actions write access only to `maxexcloo/homelab-fly`. Both source
    repos need a working `OP_SERVICE_ACCOUNT_TOKEN` with read access to that
-   vault. Their standard 1Password Action exposes it as `GH_WORKFLOW_TOKEN`.
+   vault. Their standard 1Password Action exposes it as `HOMELAB_FLY_DEPLOY_TOKEN`.
    Verify both dispatch jobs after provisioning; credential loading is not yet
    verified.
 2. Investigate the previously observed LaraPaper timeout, bento/nanokvm ICMP
