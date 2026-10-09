@@ -13,20 +13,20 @@ uv = "0.12.23"
 yq = "4.54.1"
 
 [tasks.check]
-description = "Run all repository checks"
+description = "Run All Repository Checks"
 run = "prek run --all-files"
 
 [tasks.cleanup]
-description = "Remove rendered artefacts, caches, and bytecode"
+description = "Remove Rendered Artefacts, Caches, & Bytecode"
 run = """
 find . -path ./.git -prune -o \
   -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
-  -prune -exec rm -rf -- {} +
+  -prune -exec rm -fr -- {} +
 find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
 """
 
 [tasks.fmt]
-description = "Format all files"
+description = "Format All Files"
 run = """
 prettier --write .
 ruff check --fix --select I .
@@ -34,10 +34,10 @@ ruff format .
 """
 
 [tasks.render]
-description = "Render a service without resolving secrets or deploying"
-run = 'uv run --python python --no-project .github/scripts/fly.py --render "$usage_service"'
+description = "Render A Service Without Resolving Secrets Or Deploying"
+run = 'uv run --no-project --python python .github/scripts/fly.py --render "$usage_service"'
 usage = 'arg "<service>"'
 
 [tasks.setup]
-description = "Install Git hooks"
+description = "Install Git Hooks"
 run = "prek install"

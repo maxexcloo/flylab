@@ -403,8 +403,8 @@ def source_repository(name):
                 [
                     "git",
                     "fetch",
-                    "--quiet",
                     "--depth=1",
+                    "--quiet",
                     f"https://github.com/maxexcloo/{name}.git",
                     revision or "main",
                 ],
@@ -412,7 +412,7 @@ def source_repository(name):
                 check=True,
             )
             subprocess.run(
-                ["git", "checkout", "--quiet", "--detach", "FETCH_HEAD"],
+                ["git", "checkout", "--detach", "--quiet", "FETCH_HEAD"],
                 cwd=repository,
                 check=True,
             )
