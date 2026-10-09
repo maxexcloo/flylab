@@ -45,9 +45,9 @@ configuration, not Flux readiness.
 Routes opt into monitoring with `monitoring.excloo.dev/enabled: "true"`, independently
 of Homepage visibility. HTTPS checks derive from the primary route hostname;
 optional `monitoring.excloo.dev/path` and `/url` override the probe target.
-Homelab machine services opt in with `management.monitoring: true` or
-`services.<name>.monitoring: true`; their scheme, port and optional display name
-live beside the endpoint. Gatus's own hostname comes from `deployment.toml`.
+Homelab machine services opt in with `services.<name>.monitoring: true`; their
+scheme, port and optional display name live beside the endpoint. Management
+consoles use `services.management`. Gatus's own hostname comes from `deployment.toml`.
 No Homepage configuration, running cluster API or OpenTofu state is read.
 Services are grouped by the longest matching Homelab DNS zone. Route names retain
 cluster suffixes. Invalid URLs, conflicting duplicates and an empty route inventory

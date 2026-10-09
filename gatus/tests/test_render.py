@@ -160,12 +160,13 @@ class MachineServicesTest(unittest.TestCase):
                             "lab": {
                                 "storage": {
                                     "hostname": "renamed",
-                                    "management_port": 8443,
-                                    "management": {
-                                        "name": "Console",
-                                        "monitoring": True,
-                                    },
                                     "services": {
+                                        "management": {
+                                            "monitoring": True,
+                                            "name": "Console",
+                                            "port": 8443,
+                                            "scheme": "https",
+                                        },
                                         "sync": {
                                             "name": "Sync",
                                             "monitoring": True,
@@ -177,8 +178,13 @@ class MachineServicesTest(unittest.TestCase):
                                 },
                                 "offline": {
                                     "monitoring": False,
-                                    "management_port": 443,
-                                    "management": {"monitoring": True},
+                                    "services": {
+                                        "management": {
+                                            "monitoring": True,
+                                            "port": 443,
+                                            "scheme": "https",
+                                        }
+                                    },
                                 },
                             }
                         }

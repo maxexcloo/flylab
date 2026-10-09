@@ -138,14 +138,7 @@ def machine_service_inventory(repository):
         for name, machine in hosts.items():
             if machine.get("monitoring", True) is False:
                 continue
-            services = dict(machine.get("services", {}))
-            if "management_port" in machine:
-                services["management"] = dict(
-                    machine.get("management", {}),
-                    scheme="https",
-                    port=machine["management_port"],
-                )
-            for service_name, service in services.items():
+            for service_name, service in machine.get("services", {}).items():
                 monitoring = service.get("monitoring", False)
                 if type(monitoring) is not bool:
                     raise ValueError(
