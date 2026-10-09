@@ -7,9 +7,9 @@ root-level directory.
 ## Credentials
 
 GitHub Actions keeps only `OP_SERVICE_ACCOUNT_TOKEN` as its bootstrap credential.
-It reads the Fly deployment token from `op://Flylab/Fly.io/password` and resolves
+It reads the Fly deployment token from `op://Fly/Fly.io/password` and resolves
 service-specific 1Password references. Give the service account read-only access
-to the Flylab vault and the required application vaults. The Fly token is used
+to the Fly vault and the required application vaults. The Fly token is used
 only by deployment tooling; it is never passed into applications. Keep the
 service-account recovery copy in `Homelab/Connect Token: fly`.
 Services can also declare required native Fly secrets that deployment preserves.

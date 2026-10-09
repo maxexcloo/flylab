@@ -293,34 +293,16 @@ def provider_endpoints(repository):
     ]
     probes = []
     for name, provider in providers.items():
-        validate_url(provider["url"])
-        probes.append(
-            {
-                "group": "Providers",
-                "name": name,
-                "url": provider["url"],
-                "alerts": [{"type": "email"}],
-                "conditions": [
-                    "[STATUS] == any(200, 401, 403)",
-                    "[RESPONSE_TIME] < 5000",
-                ],
-            }
-        )
-        if "dns" in provider:
-            probes.append(
-                {
-                    "group": "Providers",
-                    "name": f"{name} DNS",
-                    "url": str(ipaddress.ip_address(provider["dns"])),
-                    "alerts": [{"type": "email"}],
-                    "conditions": [
-                        "[CONNECTED] == true",
-                        "[DNS_RCODE] == NOERROR",
-                        "[RESPONSE_TIME] < 5000",
-                    ],
-                    "dns": {"query-name": domain, "query-type": "A"},
-                }
-            )
+        for settings in provider.get("gatus", []):
+            probe = {"group": "Providers", "name": name, **settings}
+            probe.setdefault("url", provider["url"])
+            if "dns" in probe:
+                probe["name"] = settings.get("name", f"{name} DNS")
+                probe["url"] = str(ipaddress.ip_address(probe["url"]))
+                probe["dns"] = {"query-name": domain, **probe["dns"]}
+            else:
+                validate_url(probe["url"])
+            probes.append(probe)
     return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 

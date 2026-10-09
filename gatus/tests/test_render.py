@@ -347,7 +347,13 @@ class ProviderEndpointsTest(unittest.TestCase):
                         "providers": {
                             "Example": {
                                 "url": "https://provider.example.com",
-                                "dns": "192.0.2.53",
+                                "gatus": [
+                                    {"conditions": ["[STATUS] == 200"]},
+                                    {
+                                        "url": "192.0.2.53",
+                                        "dns": {"query-type": "A"},
+                                    },
+                                ],
                             }
                         }
                     }
@@ -358,6 +364,7 @@ class ProviderEndpointsTest(unittest.TestCase):
                 [probe["name"] for probe in probes], ["Example", "Example DNS"]
             )
             self.assertEqual(probes[0]["url"], "https://provider.example.com")
+            self.assertEqual(probes[0]["conditions"], ["[STATUS] == 200"])
             self.assertEqual(probes[1]["url"], "192.0.2.53")
             self.assertEqual(
                 probes[1]["dns"], {"query-name": "example.net", "query-type": "A"}
@@ -366,7 +373,10 @@ class ProviderEndpointsTest(unittest.TestCase):
                 yaml.safe_dump(
                     {
                         "providers": {
-                            "Different": {"url": "https://different.example.com"}
+                            "Different": {
+                                "url": "https://different.example.com",
+                                "gatus": [{}],
+                            }
                         }
                     }
                 )
