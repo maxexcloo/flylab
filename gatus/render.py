@@ -287,16 +287,38 @@ def provider_endpoints(repository):
     probes = []
     for provider in providers.values():
         name = provider["name"]
-        for settings in provider.get("gatus", []):
-            probe = {"group": "Providers", "name": name, **settings}
-            probe.setdefault("url", provider["url"])
-            if "dns" in probe:
-                probe["name"] = settings.get("name", f"{name} DNS")
-                probe["url"] = str(ipaddress.ip_address(probe["url"]))
-                probe["dns"] = {"query-name": domain, **probe["dns"]}
-            else:
-                validate_url(probe["url"])
-            probes.append(probe)
+        if "conditions" in provider:
+            validate_url(provider["url"])
+            probes.append(
+                {
+                    "group": "Providers",
+                    "name": name,
+                    "url": provider["url"],
+                    **{
+                        key: provider[key]
+                        for key in ("alerts", "conditions")
+                        if key in provider
+                    },
+                }
+            )
+        if "dns" in provider:
+            resolver = provider["dns"]
+            probes.append(
+                {
+                    "group": "Providers",
+                    "name": resolver.get("name", f"{name} DNS"),
+                    "url": str(ipaddress.ip_address(resolver["url"])),
+                    "dns": {
+                        "query-name": resolver.get("query-name", domain),
+                        "query-type": resolver["query-type"],
+                    },
+                    **{
+                        key: resolver[key]
+                        for key in ("alerts", "conditions")
+                        if key in resolver
+                    },
+                }
+            )
     return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 

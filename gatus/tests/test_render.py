@@ -353,13 +353,11 @@ class ProviderEndpointsTest(unittest.TestCase):
                             "example": {
                                 "name": "Example",
                                 "url": "https://provider.example.com",
-                                "gatus": [
-                                    {"conditions": ["[STATUS] == 200"]},
-                                    {
-                                        "url": "192.0.2.53",
-                                        "dns": {"query-type": "A"},
-                                    },
-                                ],
+                                "conditions": ["[STATUS] == 200"],
+                                "dns": {
+                                    "query-type": "A",
+                                    "url": "192.0.2.53",
+                                },
                             }
                         }
                     }
@@ -382,7 +380,7 @@ class ProviderEndpointsTest(unittest.TestCase):
                             "different": {
                                 "name": "Different",
                                 "url": "https://different.example.com",
-                                "gatus": [{}],
+                                "conditions": ["[STATUS] == 200"],
                             }
                         }
                     }
