@@ -285,7 +285,8 @@ def provider_endpoints(repository):
         "infrastructure"
     ]
     probes = []
-    for name, provider in providers.items():
+    for provider in providers.values():
+        name = provider["name"]
         for settings in provider.get("gatus", []):
             probe = {"group": "Providers", "name": name, **settings}
             probe.setdefault("url", provider["url"])

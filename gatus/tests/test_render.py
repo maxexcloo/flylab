@@ -110,7 +110,6 @@ class InfrastructureTest(unittest.TestCase):
                     "server": {
                         "hostname": "renamed",
                         "type": "custom",
-                        "tailscale": {"network_prefix": False},
                     },
                 },
             }
@@ -351,7 +350,8 @@ class ProviderEndpointsTest(unittest.TestCase):
                 yaml.safe_dump(
                     {
                         "providers": {
-                            "Example": {
+                            "example": {
+                                "name": "Example",
                                 "url": "https://provider.example.com",
                                 "gatus": [
                                     {"conditions": ["[STATUS] == 200"]},
@@ -379,7 +379,8 @@ class ProviderEndpointsTest(unittest.TestCase):
                 yaml.safe_dump(
                     {
                         "providers": {
-                            "Different": {
+                            "different": {
+                                "name": "Different",
                                 "url": "https://different.example.com",
                                 "gatus": [{}],
                             }
