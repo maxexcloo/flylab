@@ -14,7 +14,7 @@ Credentials are restricted to the declaring route’s hostnames; transformed Sec
 templates are rejected. Only GitHub Actions resolves values.
 
 - **1Password**: `OP_SERVICE_ACCOUNT_TOKEN` reads the app vaults discovered from
-  Kubelab. Give it read-only access to Fly and the cluster vaults; new apps within those
+  Kubelab. Give it read-only access to Flylab and the cluster vaults; new apps within those
   vaults need no service-account changes.
 - **GitHub dispatch**: both source repositories use the Actions secret
   `HOMELAB_FLY_DEPLOY_TOKEN`. Keep its reference copy at
@@ -22,7 +22,7 @@ templates are rejected. Only GitHub Actions resolves values.
   secrets when rotating it. The token needs Actions write access only to
   `maxexcloo/flylab`; it is not a Fly credential.
 - **Runtime**: `gatus/secrets.env` references the `Resend` and `Tailscale OAuth Client`
-  items in the Fly vault. Homelab manages the sending-only `RESEND_API_KEY` and scoped
+  items in the Flylab vault. Homelab manages the sending-only `RESEND_API_KEY` and scoped
   `TAILSCALE_OAUTH_CLIENT_SECRET`. Deployment imports both into Fly secrets.
   Tailscale obtains registration keys automatically for `tag:fly`.
 
