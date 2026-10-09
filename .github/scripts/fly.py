@@ -52,11 +52,25 @@ def deploy(deployment):
         check=True,
         cwd=deployment_path,
     )
-    verify(app, deployment["port"])
     subprocess.run(
-        ["flyctl", "scale", "count", str(deployment["machine_count"]), "--app", app],
+        [
+            "flyctl",
+            "scale",
+            "count",
+            str(deployment["machine_count"]),
+            "--app",
+            app,
+            "--yes",
+        ],
         check=True,
     )
+    for machine in fly_json(["machines", "list"], app):
+        if machine["state"] in {"stopped", "suspended"}:
+            subprocess.run(
+                ["flyctl", "machine", "start", machine["id"], "--app", app],
+                check=True,
+            )
+    verify(app, deployment["port"])
 
 
 def fly_json(arguments, app):
@@ -221,7 +235,11 @@ def verify(app, port):
             "--app",
             app,
             "--command",
-            f"wget --output-document=- --timeout=10 http://127.0.0.1:{port}/health",
+            (
+                "sh -c 'for attempt in $(seq 1 30); do "
+                f"wget --output-document=- --timeout=5 http://127.0.0.1:{port}/health "
+                "&& exit 0; sleep 3; done; exit 1'"
+            ),
         ],
         check=True,
     )

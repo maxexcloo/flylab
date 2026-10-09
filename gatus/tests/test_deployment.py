@@ -12,6 +12,50 @@ FLY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(FLY)
 
 
+class DeploymentTest(unittest.TestCase):
+    def test_stopped_machines_start_before_health_verification(self):
+        deployment = {
+            "app": "example",
+            "certificates": [],
+            "directory": "example",
+            "machine_count": 1,
+            "port": 8080,
+        }
+        calls = Mock()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / ".render/example").mkdir(parents=True)
+            (path / ".render/example/fly.toml").touch()
+            with (
+                patch.object(FLY, "Path", side_effect=lambda value: path / value),
+                patch.object(FLY, "app_exists", return_value=True),
+                patch.object(FLY, "reconcile_certificates"),
+                patch.object(FLY, "reconcile_secrets"),
+                patch.object(
+                    FLY,
+                    "fly_json",
+                    return_value=[
+                        {"id": "cold", "state": "stopped"},
+                        {"id": "warm", "state": "started"},
+                    ],
+                ),
+                patch.object(FLY.subprocess, "run", calls.run),
+                patch.object(FLY, "verify", calls.verify),
+            ):
+                FLY.deploy(deployment)
+        self.assertEqual(
+            [call.args[0] for call in calls.run.call_args_list],
+            [
+                ["flyctl", "deploy", "--app", "example", "--config", "fly.toml"],
+                ["flyctl", "scale", "count", "1", "--app", "example", "--yes"],
+                ["flyctl", "machine", "start", "cold", "--app", "example"],
+            ],
+        )
+        self.assertEqual(
+            calls.mock_calls[-1], unittest.mock.call.verify("example", 8080)
+        )
+
+
 class SecretReconciliationTest(unittest.TestCase):
     def test_missing_native_secret_stops_before_mutations(self):
         with tempfile.TemporaryDirectory() as directory:
