@@ -26,7 +26,10 @@ templates are rejected. Only GitHub Actions resolves values.
   `TAILSCALE_OAUTH_CLIENT_SECRET`. Deployment imports both into Fly secrets.
   Tailscale obtains registration keys automatically for `tag:fly`.
 
-Tailscale runs in the Fly container for private reachability. Deploying a new
+Tailscale runs in the Fly container for private reachability. Each deployment
+registers an ephemeral client; Tailscale automatically removes retired clients
+after they go offline. Client addresses can change, and deployments can briefly
+overlap in the admin console. Deploying a new
 inventory still requires working DNS, Tailscale grants and valid credentials;
 an offline render cannot verify those. Startup waits up to 60 seconds for Tailscale
 to connect before starting Gatus; connection failure stops startup.
