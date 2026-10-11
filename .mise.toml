@@ -1,15 +1,15 @@
 [tools]
 1password-cli = "2.40.0"
 actionlint = "1.7.12"
-flyctl = "0.4.114"
+flyctl = "0.4.115"
 hadolint = "2.15.1"
 kustomize = "5.8.3"
 prek = "0.5.5"
-prettier = "3.9.9"
-python = "3.14.8"
-ruff = "0.16.10"
+prettier = "3.9.10"
+python = "3.15.0"
+ruff = "0.17.0"
 shellcheck = "0.11.0"
-uv = "0.12.23"
+uv = "0.13.0"
 yq = "4.54.1"
 
 [tasks.check]

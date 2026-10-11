@@ -9,9 +9,8 @@ import os
 import re
 import shutil
 import subprocess
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=.*$")
 SERVICE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
