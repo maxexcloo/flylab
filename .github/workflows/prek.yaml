@@ -21,6 +21,6 @@ jobs:
         uses: jdx/mise-action@v5
         with:
           install_args: actionlint hadolint prek prettier python ruff shellcheck uv
-          version: 2026.10.7
+          version: 2026.10.9
       - name: Run Checks
         run: mise run check
