@@ -4,6 +4,10 @@ External monitoring for the homelab, deployed on Fly.io. Homelab owns
 infrastructure and status-page DNS; Kubelab owns application routes and service
 metadata. See the [Flylab README](../README.md) for shared deployment tooling.
 
+The [Images repository](https://github.com/maxexcloo/images) builds the shared
+Gatus/Tailscale base. Flylab pins its published digest and adds the generated
+monitoring configuration and credential-aware startup script.
+
 ## Credentials
 
 Monitoring headers are explicitly declared on Kubelab routes with
