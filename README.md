@@ -20,7 +20,8 @@ Services can also declare required native Fly secrets that deployment preserves.
    containing `deployment.toml`. Manual runs can select a deployment key or Fly
    app name, or explicitly delete an app.
 2. Each service is copied into `.render/`. An optional service-local `render.py`
-   prepares generated application files without deployment credentials.
+   prepares generated application files without deployment credentials. Its optional
+   `requirements.txt` supplies renderer dependencies and is also used by tests.
 3. GitHub Actions resolves `secrets.env` references through 1Password. Values pass
    directly to Fly over standard input; they are never written to files or
    workflow artefacts.

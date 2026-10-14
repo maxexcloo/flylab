@@ -1,5 +1,6 @@
 deployment.toml
 overrides.yaml
 render.py
+requirements.txt
 secrets.env
 tests/

@@ -1,5 +1,5 @@
 [tools]
-1password-cli = "2.40.0"
+1password-cli = "2.41.0"
 actionlint = "1.7.12"
 flyctl = "0.4.117"
 hadolint = "2.15.1"
