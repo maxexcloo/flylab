@@ -13,18 +13,7 @@ updatecli = "0.122.1"
 uv = "0.13.1"
 yq = "4.54.1"
 
-[tasks.check]
-description = "Run All Repository Checks"
-run = "prek run --all-files"
-
-[tasks.cleanup]
-description = "Remove Rendered Artefacts, Caches, & Bytecode"
-run = """
-find . -path ./.git -prune -o \
-  -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
-  -prune -exec rm -fr -- {} +
-find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
-"""
+# Dependency Updates
 
 [tasks."dependencies:check"]
 description = "Preview Local Dependency Updates"
@@ -47,6 +36,21 @@ fi
 updatecli pipeline apply --config .updatecli.d --disable-changelog --disable-udash-report --unique-tmp-dir "$@"
 """
 
+# Development
+
+[tasks.check]
+description = "Run All Repository Checks"
+run = "prek run --all-files"
+
+[tasks.cleanup]
+description = "Remove Rendered Artefacts, Caches, & Bytecode"
+run = """
+find . -path ./.git -prune -o \
+  -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
+  -prune -exec rm -fr -- {} +
+find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
+"""
+
 [tasks.fmt]
 description = "Format All Files"
 run = """
@@ -59,6 +63,8 @@ ruff format .
 description = "Render A Service Without Resolving Secrets Or Deploying"
 run = 'uv run --no-project --python python .github/scripts/fly.py --render "$usage_service"'
 usage = 'arg "<service>"'
+
+# Setup
 
 [tasks.setup]
 description = "Install Git Hooks"
