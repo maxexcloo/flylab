@@ -217,9 +217,12 @@ def render(service):
     )
     renderer = service_path / "render.py"
     if renderer.is_file():
+        command = ["uv", "run", "--no-project"]
+        requirements = service_path / "requirements.txt"
+        if requirements.is_file():
+            command.extend(["--with-requirements", str(requirements)])
         subprocess.run(
-            ["uv", "run", "--no-project", str(renderer), str(render_path.resolve())],
-            check=True,
+            [*command, str(renderer), str(render_path.resolve())], check=True
         )
 
     return render_path

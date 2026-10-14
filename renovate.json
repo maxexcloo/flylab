@@ -1,5 +1,21 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "dependencyDashboard": false,
-  "extends": ["config:recommended", ":enablePreCommit"]
+  "extends": ["config:recommended", ":enablePreCommit"],
+  "customDatasources": {
+    "onepassword-cli": {
+      "defaultRegistryUrlTemplate": "https://app-updates.agilebits.com/check/1/0/CLI2/en/2.0.0/N",
+      "transformTemplates": ["{\"releases\":[{\"version\":version}]}"]
+    }
+  },
+  "packageRules": [
+    {
+      "description": "Read 1Password CLI releases from the official update feed",
+      "extractVersion": "^(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "matchDepNames": ["1password-cli"],
+      "matchManagers": ["mise"],
+      "overrideDatasource": "custom.onepassword-cli",
+      "overridePackageName": "1password-cli"
+    }
+  ]
 }
