@@ -26,24 +26,6 @@ find . -path ./.git -prune -o \
 find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
 """
 
-[tasks.fmt]
-description = "Format All Files"
-run = """
-prettier --write .
-ruff check --fix --select I .
-ruff format .
-"""
-
-[tasks.render]
-description = "Render A Service Without Resolving Secrets Or Deploying"
-run = 'uv run --no-project --python python .github/scripts/fly.py --render "$usage_service"'
-usage = 'arg "<service>"'
-
-[tasks.setup]
-description = "Install Git Hooks"
-run = "prek install"
-
-# Dependency Updates
 [tasks."dependencies:check"]
 description = "Preview Local Dependency Updates"
 run = """
@@ -64,3 +46,20 @@ if [ -n "${usage_labels:-}" ]; then
 fi
 updatecli pipeline apply --config .updatecli.d --disable-changelog --disable-udash-report --unique-tmp-dir "$@"
 """
+
+[tasks.fmt]
+description = "Format All Files"
+run = """
+prettier --write .
+ruff check --fix --select I .
+ruff format .
+"""
+
+[tasks.render]
+description = "Render A Service Without Resolving Secrets Or Deploying"
+run = 'uv run --no-project --python python .github/scripts/fly.py --render "$usage_service"'
+usage = 'arg "<service>"'
+
+[tasks.setup]
+description = "Install Git Hooks"
+run = "prek install"
