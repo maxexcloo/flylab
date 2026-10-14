@@ -3,13 +3,14 @@
 actionlint = "1.7.12"
 flyctl = "0.4.117"
 hadolint = "2.15.1"
-kustomize = "5.8.3"
+kubectl = "1.37.1"
 prek = "0.5.5"
 prettier = "3.9.10"
 python = "3.15.0"
 ruff = "0.17.0"
 shellcheck = "0.11.0"
-uv = "0.13.0"
+updatecli = "0.122.1"
+uv = "0.13.1"
 yq = "4.54.1"
 
 [tasks.check]
@@ -41,3 +42,25 @@ usage = 'arg "<service>"'
 [tasks.setup]
 description = "Install Git Hooks"
 run = "prek install"
+
+# Dependency Updates
+[tasks."dependencies:check"]
+description = "Preview Local Dependency Updates"
+run = """
+GITHUB_TOKEN="$(gh auth token)"
+export GITHUB_TOKEN
+updatecli pipeline diff --config .updatecli.d --disable-changelog --disable-udash-report --unique-tmp-dir
+"""
+
+[tasks."dependencies:update"]
+description = "Apply Reviewed Local Dependency Updates"
+usage = 'flag "--labels <labels>" help="Select Updatecli groups, such as group:tools"'
+run = """
+GITHUB_TOKEN="$(gh auth token)"
+export GITHUB_TOKEN
+set --
+if [ -n "${usage_labels:-}" ]; then
+  set -- --labels "$usage_labels"
+fi
+updatecli pipeline apply --config .updatecli.d --disable-changelog --disable-udash-report --unique-tmp-dir "$@"
+"""

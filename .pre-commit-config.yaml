@@ -17,7 +17,6 @@ repos:
     rev: 0.38.2
     hooks:
       - id: check-github-workflows
-      - id: check-renovate
   - repo: local
     hooks:
       - id: actionlint
@@ -63,3 +62,9 @@ repos:
         language: system
         types:
           - shell
+      - id: updatecli
+        name: Validate Local Update Policies
+        entry: mise exec -- updatecli manifest validate --config .updatecli.d --disable-templating --strict
+        files: ^\.updatecli\.d/
+        language: system
+        pass_filenames: false
