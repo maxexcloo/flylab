@@ -1,4 +1,13 @@
 [tools]
+# 1password-cli = "latest"
+# gh = "latest"
+# kubectl = "latest"
+# prek = "latest"
+# python = "latest"
+# ruff = "latest"
+# updatecli = "latest"
+# uv = "latest"
+# yq = "latest"
 1password-cli = "2.41.0"
 actionlint = "1.7.12"
 flyctl = "0.4.117"
@@ -14,7 +23,6 @@ uv = "0.13.1"
 yq = "4.54.1"
 
 # Dependency Updates
-
 [tasks."dependencies:check"]
 description = "Preview Local Dependency Updates"
 run = """
@@ -37,7 +45,6 @@ updatecli pipeline apply --config .updatecli.d --disable-changelog --disable-uda
 """
 
 # Development
-
 [tasks.check]
 description = "Run All Repository Checks"
 run = "prek run --all-files"
@@ -65,7 +72,6 @@ run = 'uv run --no-project --python python .github/scripts/fly.py --render "$usa
 usage = 'arg "<service>"'
 
 # Setup
-
 [tasks.setup]
 description = "Install Git Hooks"
 run = "prek install"

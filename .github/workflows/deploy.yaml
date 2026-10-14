@@ -50,7 +50,6 @@ jobs:
       - name: Set Up Tools
         uses: jdx/mise-action@v5
         with:
-          install_args: python uv
           version: 2026.10.9
       - name: Select Deployments
         id: select
