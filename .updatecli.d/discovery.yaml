@@ -6,7 +6,5 @@ autodiscovery:
     dockerfile:
       ignore:
         - path: .render/*
-    precommit:
-      digest: false
 labels:
   group: standard

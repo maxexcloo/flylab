@@ -40,7 +40,6 @@ Install jq separately (`brew install jq` on macOS), then use the pinned Mise too
 
 ```shell
 mise install
-mise run setup
 mise run check
 mise run render <service>
 ```
