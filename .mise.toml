@@ -2,7 +2,6 @@
 # 1password-cli = "latest"
 # gh = "latest"
 # kubectl = "latest"
-# prek = "latest"
 # python = "latest"
 # ruff = "latest"
 # updatecli = "latest"
@@ -11,13 +10,25 @@
 actionlint = "1.7.12"
 flyctl = "0.4.117"
 hadolint = "2.15.1"
+"pipx:check-jsonschema" = "0.38.2"
 prettier = "3.9.10"
 shellcheck = "0.11.0"
 
 # Development
 [tasks.check]
 description = "Run All Repository Checks"
-run = "prek run --all-files"
+run = """
+updatecli manifest validate --config .updatecli.d --disable-templating --strict
+check-jsonschema --builtin-schema github-workflows .github/workflows/*.yaml
+actionlint
+uv run --no-project --python python --with-requirements gatus/requirements.txt python -m unittest discover -s gatus/tests
+hadolint --failure-threshold error */Dockerfile
+prettier --check .
+ruff check --extend-select I .
+ruff format --check .
+shellcheck */*.sh
+git diff --check
+"""
 
 [tasks.cleanup]
 description = "Remove Rendered Artefacts, Caches, & Bytecode"
@@ -40,8 +51,3 @@ ruff format .
 description = "Render A Service Without Resolving Secrets Or Deploying"
 run = 'uv run --no-project --python python .github/scripts/fly.py --render "$usage_service"'
 usage = 'arg "<service>"'
-
-# Setup
-[tasks.setup]
-description = "Install Git Hooks"
-run = "prek install"
