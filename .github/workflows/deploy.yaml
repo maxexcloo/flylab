@@ -32,13 +32,8 @@ permissions:
   contents: read
 
 jobs:
-  check:
-    name: Prek
-    uses: ./.github/workflows/prek.yaml
-
   prepare:
     name: Select
-    needs: check
     runs-on: ubuntu-latest
     outputs:
       deployments: ${{ steps.select.outputs.deployments }}
