@@ -168,6 +168,7 @@ class MachineServicesTest(unittest.TestCase):
                                 "scheme": "https",
                             },
                             "sync": {
+                                "hostname": "sync.renamed.lab.example.net",
                                 "name": "Sync",
                                 "monitoring": True,
                                 "scheme": "http",
@@ -194,7 +195,7 @@ class MachineServicesTest(unittest.TestCase):
             {entry["name"]: entry["monitor"] for entry in entries},
             {
                 "Console": "https://renamed.lab.example.net:8443",
-                "Sync": "http://renamed.lab.example.net",
+                "Sync": "http://sync.renamed.lab.example.net",
             },
         )
         self.assertFalse(any(entry["type"] == "homepage" for entry in entries))

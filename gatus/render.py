@@ -148,12 +148,13 @@ def machine_service_inventory(machines, domain):
                 raise ValueError(
                     f"Invalid machine service endpoint: {hostname}/{service_name}"
                 )
+            service_host = service.get("hostname", host)
             suffix = (
                 "" if (scheme, port) in {("http", 80), ("https", 443)} else f":{port}"
             )
             entries.append(
                 {
-                    "monitor": f"{scheme}://{host}{suffix}",
+                    "monitor": f"{scheme}://{service_host}{suffix}",
                     "name": service.get("name", f"{name} {service_name}"),
                     "type": "machine",
                 }
