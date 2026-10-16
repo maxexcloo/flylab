@@ -2,7 +2,7 @@
 name: Update pyyaml In gatus/requirements.txt
 pipelineid: update-pyyaml-in-gatus-requirements-txt
 labels:
-  group: packages
+  group: python
 sources:
   version:
     kind: pypi

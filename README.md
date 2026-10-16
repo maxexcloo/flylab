@@ -36,6 +36,9 @@ credentials and operating requirements in `<service>/README.md`.
 
 ## Development
 
+Install the [shared Mise configuration](https://github.com/maxexcloo/dotfiles#shared-tools--tasks)
+before running local Mise tasks.
+
 Install jq separately (`brew install jq` on macOS), then use the pinned Mise tools:
 
 ```shell

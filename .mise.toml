@@ -1,33 +1,28 @@
+[vars]
+python_test_directory = "gatus/tests"
+python_test_runner = "uv run --no-project --python python --with-requirements gatus/requirements.txt python -B"
+ruff_args = "--extend-select I"
+shell_paths = "*/*.sh"
+
 [tools]
-# 1password-cli = "latest"
-# gh = "latest"
-# kubectl = "latest"
-# python = "latest"
-# ruff = "latest"
-# updatecli = "latest"
-# uv = "latest"
-# yq = "latest"
-actionlint = "1.7.12"
 flyctl = "0.4.117"
 hadolint = "2.15.1"
 "pipx:check-jsonschema" = "0.38.2"
-prettier = "3.9.10"
-shellcheck = "0.11.0"
 
 # Development
 [tasks.check]
-description = "Run All Repository Checks"
+depends = [
+  "check:actions",
+  "check:prettier",
+  "check:python",
+  "check:shell",
+  "check:updates",
+  "check:whitespace",
+  "test:python",
+]
 run = """
-updatecli manifest validate --config .updatecli.d --disable-templating --strict
 check-jsonschema --builtin-schema github-workflows .github/workflows/*.yaml
-actionlint
-uv run --no-project --python python --with-requirements gatus/requirements.txt python -m unittest discover -s gatus/tests
 hadolint --failure-threshold error */Dockerfile
-prettier --check .
-ruff check --extend-select I .
-ruff format --check .
-shellcheck */*.sh
-git diff --check
 """
 
 [tasks.cleanup]
@@ -40,12 +35,7 @@ find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
 """
 
 [tasks.fmt]
-description = "Format All Files"
-run = """
-prettier --write .
-ruff check --fix --select I .
-ruff format .
-"""
+depends = ["fmt:prettier", "fmt:python"]
 
 [tasks.render]
 description = "Render A Service Without Resolving Secrets Or Deploying"
