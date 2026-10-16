@@ -91,6 +91,32 @@ class EndpointsTest(unittest.TestCase):
 
 
 class InfrastructureTest(unittest.TestCase):
+    def test_provider_public_node_uses_owning_cluster_dns(self):
+        inventory = {
+            "machines": {
+                "new": {
+                    "worker": {
+                        "oci": {"assign_public_ip": True},
+                        "type": "vm",
+                    }
+                }
+            },
+            "types": {"vm": "Servers"},
+        }
+        probes = RENDER.infrastructure_endpoints(
+            inventory,
+            "example.net",
+            {"new": {"api_node": "control", "public_node": "worker"}},
+            "example.dev",
+        )
+        self.assertEqual(
+            [(p["group"], p["name"], p["url"]) for p in probes],
+            [
+                ("Servers (External)", "new-worker", "icmp://public.new.example.dev"),
+                ("Servers (Internal)", "new-worker", "icmp://worker.new.example.net"),
+            ],
+        )
+
     def test_homelab_identity_reachability_and_exclusions(self):
         machines = {
             "mbk": {
@@ -114,14 +140,14 @@ class InfrastructureTest(unittest.TestCase):
         self.assertEqual(
             [probe["url"] for probe in probes],
             [
-                "icmp://192.0.2.1",
                 "icmp://renamed.mbk.example.net",
+                "icmp://192.0.2.1",
                 "icmp://backup.mbk.example.net",
             ],
         )
-        self.assertEqual(probes[0]["group"], "External (Servers)")
-        self.assertEqual(probes[1]["group"], "Internal (Custom)")
-        self.assertEqual(probes[1]["name"], "mbk-renamed")
+        self.assertEqual(probes[1]["group"], "Servers (External)")
+        self.assertEqual(probes[0]["group"], "Custom (Internal)")
+        self.assertEqual(probes[0]["name"], "mbk-renamed")
         self.assertEqual(
             probes[1]["conditions"], ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"]
         )

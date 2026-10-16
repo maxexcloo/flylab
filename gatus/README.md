@@ -66,7 +66,9 @@ supplies the infrastructure DNS suffix; `data/dns/*.yaml` supplies service group
 Typed, Tailscale-enabled machines receive internal ICMP checks using Homelab's
 `<hostname>.<network>.<infrastructure-domain>` convention. Declared public IPs
 receive separate external checks, preferring IPv4 when both families are present.
-No OpenTofu state, provider credentials or resolved device addresses are read.
+Provider-assigned public cluster nodes use Homelab’s `public.<cluster>.<service-domain>`
+DNS record, derived from the cluster’s public node selection. No OpenTofu state,
+provider credentials or resolved device addresses are read.
 Untyped personal devices and Tailscale-disabled private devices are excluded;
 machines with `monitoring: false` are also excluded. The `types` mapping in
 Homelab supplies the display group for each machine type.
@@ -80,8 +82,8 @@ Kubelab consumes the same inventory for Homepage.
 
 ## Monitoring
 
-The default UI sort is `group`: domain groups first, then `External (...)`,
-`Internal (...)` and `Providers`, alphabetically within each section. This order
+The default UI sort is `group`: category groups such as `Servers (External)` and
+`Servers (Internal)` appear alongside domain groups and `Providers`, alphabetically. This order
 comes from the group names, not the order of YAML files. The browser can retain a
 user-selected sort or filter. Renaming groups or endpoints changes Gatus history
 keys; memory-only storage also resets on restart.

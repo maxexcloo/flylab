@@ -83,8 +83,14 @@ def endpoints(inventory, zones):
     ]
 
 
-def infrastructure_endpoints(inventory, domain):
+def infrastructure_endpoints(inventory, domain, clusters=None, services_domain=None):
     groups = inventory["types"]
+    public_hosts = {
+        cluster.get(
+            "public_node", cluster["api_node"]
+        ): f"public.{name}.{services_domain}"
+        for name, cluster in (clusters or {}).items()
+    }
     probes = []
     for network, name, hostname, host, machine in monitored_machines(
         inventory["machines"], domain
@@ -100,10 +106,14 @@ def infrastructure_endpoints(inventory, domain):
         address = machine.get("public_ipv4") or machine.get("public_ipv6")
         if address:
             targets["External"] = str(ipaddress.ip_address(address))
+        elif machine.get("oci", {}).get("assign_public_ip") and name in public_hosts:
+            if not services_domain:
+                raise ValueError("Missing service domain for the public cluster node")
+            targets["External"] = public_hosts[name]
         for scope, target in targets.items():
             probes.append(
                 {
-                    "group": f"{scope} ({groups[machine_type]})",
+                    "group": f"{groups[machine_type]} ({scope})",
                     "name": f"{network}-{hostname}",
                     "url": f"icmp://{target}",
                     "alerts": [{"type": "email"}],
@@ -332,9 +342,9 @@ def render(repository, homelab, output):
         for path in sorted((homelab / "data/dns").glob("*.yaml"))
     ]
     machines = yaml.safe_load((homelab / "data/machines.yaml").read_text())
-    domain = yaml.safe_load((homelab / "data/domains.yaml").read_text())["domains"][
-        "infrastructure"
-    ]
+    domains = yaml.safe_load((homelab / "data/domains.yaml").read_text())["domains"]
+    domain = domains["infrastructure"]
+    clusters = yaml.safe_load((homelab / "data/clusters.yaml").read_text())["clusters"]
     providers = yaml.safe_load((homelab / "data/providers.yaml").read_text())[
         "providers"
     ]
@@ -355,7 +365,9 @@ def render(repository, homelab, output):
     with (output / "secrets.env").open("a") as secret_file:
         for name, reference in sorted(secrets.items()):
             secret_file.write(f"{name}={{{{ {reference} }}}}\n")
-    infrastructure = infrastructure_endpoints(machines, domain)
+    infrastructure = infrastructure_endpoints(
+        machines, domain, clusters, domains["services"]
+    )
     providers = provider_endpoints(providers, domain)
     config_directory = output / "app/config"
     (config_directory / "services.yaml").write_text(
