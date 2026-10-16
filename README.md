@@ -21,11 +21,11 @@ Services can also declare required native Fly secrets that deployment preserves.
    app name, or explicitly delete an app.
 2. Each service is copied into `.render/`. An optional service-local `render.py`
    prepares generated application files without deployment credentials. Its optional
-   `requirements.txt` supplies renderer dependencies and is also used by tests.
+   `requirements.txt` supplies renderer dependencies and is also used by its service tests.
 3. GitHub Actions resolves `secrets.env` references through 1Password. Values pass
    directly to Fly over standard input; they are never written to files or
    workflow artefacts.
-4. Deployment reconciles certificates and secrets, deploys, checks `/health` on
+4. Deployment reconciles certificates and secrets, deploys, verifies the HTTP GET checks declared in `fly.toml` on
    the configured HTTP port and reconciles machine count. Secrets absent from
    both the generated references and required native secrets are staged for removal.
 
@@ -46,6 +46,10 @@ mise install
 mise run check
 mise run render <service>
 ```
+
+Checks discover shared tests in `tests/` and each configured service’s `tests/`,
+using that service’s optional `requirements.txt`. HTTP health checks must use GET
+without custom headers for post-deployment verification.
 
 Rendering resolves no secrets and makes no deployment changes. Generated output
 stays under `.render/`; `mise run cleanup` removes it. Use `mise run fmt` to format

@@ -1,6 +1,4 @@
 [vars]
-python_test_directory = "gatus/tests"
-python_test_runner = "uv run --no-project --python python --with-requirements gatus/requirements.txt python -B"
 ruff_args = "--extend-select I"
 shell_paths = "*/*.sh"
 
@@ -41,3 +39,7 @@ depends = ["fmt:prettier", "fmt:python"]
 description = "Render A Service Without Resolving Secrets Or Deploying"
 run = 'uv run --no-project --python python .github/scripts/fly.py --render "$usage_service"'
 usage = 'arg "<service>"'
+
+[tasks."test:python"]
+description = "Test Shared Tooling & Service Suites"
+run = "uv run --no-project --python python .github/scripts/test.py"

@@ -39,7 +39,7 @@ def endpoints(inventory, zones):
     for entry in inventory:
         if entry.get("type") not in {"machine", "route", "fly"}:
             raise ValueError("Unsupported inventory entry")
-        for field in ("group", "monitor", "name", "source"):
+        for field in ("monitor", "name"):
             if not isinstance(entry.get(field), str) or not entry[field].strip():
                 raise ValueError(f"Missing inventory field: {field}")
         url = entry["monitor"]
@@ -83,41 +83,33 @@ def endpoints(inventory, zones):
     ]
 
 
-def infrastructure_endpoints(repository):
-    inventory = yaml.safe_load((repository / "data/machines.yaml").read_text())
-    machines = inventory["machines"]
+def infrastructure_endpoints(inventory, domain):
     groups = inventory["types"]
-    domain = yaml.safe_load((repository / "data/domains.yaml").read_text())["domains"][
-        "infrastructure"
-    ]
     probes = []
-    for network, entries in sorted(machines.items()):
-        for name, machine in sorted(entries.items()):
-            machine_type = machine.get("type")
-            monitoring = machine.get("monitoring", True)
-            if type(monitoring) is not bool:
-                raise ValueError(f"Invalid monitoring setting: {name}")
-            if machine_type is None or not monitoring:
-                continue
-            if machine_type not in groups:
-                raise ValueError(f"Unsupported machine type: {machine_type}")
-            hostname = machine.get("hostname", name)
-            targets = {}
-            if machine.get("tailscale", {}).get("enabled", True):
-                targets["Internal"] = f"{hostname}.{network}.{domain}"
-            address = machine.get("public_ipv4") or machine.get("public_ipv6")
-            if address:
-                targets["External"] = str(ipaddress.ip_address(address))
-            for scope, target in targets.items():
-                probes.append(
-                    {
-                        "group": f"{scope} ({groups[machine_type]})",
-                        "name": f"{network}-{hostname}",
-                        "url": f"icmp://{target}",
-                        "alerts": [{"type": "email"}],
-                        "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
-                    }
-                )
+    for network, name, hostname, host, machine in monitored_machines(
+        inventory["machines"], domain
+    ):
+        machine_type = machine.get("type")
+        if machine_type is None:
+            continue
+        if machine_type not in groups:
+            raise ValueError(f"Unsupported machine type: {machine_type}")
+        targets = {}
+        if machine.get("tailscale", {}).get("enabled", True):
+            targets["Internal"] = host
+        address = machine.get("public_ipv4") or machine.get("public_ipv6")
+        if address:
+            targets["External"] = str(ipaddress.ip_address(address))
+        for scope, target in targets.items():
+            probes.append(
+                {
+                    "group": f"{scope} ({groups[machine_type]})",
+                    "name": f"{network}-{hostname}",
+                    "url": f"icmp://{target}",
+                    "alerts": [{"type": "email"}],
+                    "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
+                }
+            )
     if not probes:
         raise ValueError("Expected a non-empty Homelab infrastructure inventory")
     return sorted(
@@ -125,52 +117,49 @@ def infrastructure_endpoints(repository):
     )
 
 
-def machine_service_inventory(repository):
+def machine_service_inventory(machines, domain):
     """Read explicit machine-service checks without importing dashboard configuration."""
-    machines = yaml.safe_load((repository / "data/machines.yaml").read_text())[
-        "machines"
-    ]
-    domain = yaml.safe_load((repository / "data/domains.yaml").read_text())["domains"][
-        "infrastructure"
-    ]
     entries = []
-    for network, hosts in machines.items():
-        for name, machine in hosts.items():
-            if machine.get("monitoring", True) is False:
+    for network, name, hostname, host, machine in monitored_machines(machines, domain):
+        for service_name, service in machine.get("services", {}).items():
+            monitoring = service.get("monitoring", False)
+            if type(monitoring) is not bool:
+                raise ValueError(
+                    f"Invalid service monitoring setting: {hostname}/{service_name}"
+                )
+            if not monitoring:
                 continue
-            for service_name, service in machine.get("services", {}).items():
-                monitoring = service.get("monitoring", False)
-                if type(monitoring) is not bool:
-                    raise ValueError(
-                        f"Invalid service monitoring setting: {name}/{service_name}"
-                    )
-                if not monitoring:
-                    continue
-                scheme, port = service["scheme"], service["port"]
-                if (
-                    scheme not in {"http", "https"}
-                    or type(port) is not int
-                    or not 1 <= port <= 65535
-                ):
-                    raise ValueError(
-                        f"Invalid machine service endpoint: {name}/{service_name}"
-                    )
-                host = f"{machine.get('hostname', name)}.{network}.{domain}"
-                suffix = (
-                    ""
-                    if (scheme, port) in {("http", 80), ("https", 443)}
-                    else f":{port}"
+            scheme, port = service["scheme"], service["port"]
+            if (
+                scheme not in {"http", "https"}
+                or type(port) is not int
+                or not 1 <= port <= 65535
+            ):
+                raise ValueError(
+                    f"Invalid machine service endpoint: {hostname}/{service_name}"
                 )
-                entries.append(
-                    {
-                        "group": "Infrastructure",
-                        "monitor": f"{scheme}://{host}{suffix}",
-                        "name": service.get("name", f"{name} {service_name}"),
-                        "source": f"Homelab/{network}/{name}/{service_name}",
-                        "type": "machine",
-                    }
-                )
+            suffix = (
+                "" if (scheme, port) in {("http", 80), ("https", 443)} else f":{port}"
+            )
+            entries.append(
+                {
+                    "monitor": f"{scheme}://{host}{suffix}",
+                    "name": service.get("name", f"{name} {service_name}"),
+                    "type": "machine",
+                }
+            )
     return entries
+
+
+def monitored_machines(machines, domain):
+    for network, hosts in sorted(machines.items()):
+        for name, machine in sorted(hosts.items()):
+            monitoring = machine.get("monitoring", True)
+            if type(monitoring) is not bool:
+                raise ValueError(f"Invalid monitoring setting: {name}")
+            if monitoring:
+                hostname = machine.get("hostname", name)
+                yield network, name, hostname, f"{hostname}.{network}.{domain}", machine
 
 
 def monitoring_credentials(inventory, manifests):
@@ -277,13 +266,7 @@ def monitoring_credentials(inventory, manifests):
     return headers, secrets
 
 
-def provider_endpoints(repository):
-    providers = yaml.safe_load((repository / "data/providers.yaml").read_text())[
-        "providers"
-    ]
-    domain = yaml.safe_load((repository / "data/domains.yaml").read_text())["domains"][
-        "infrastructure"
-    ]
+def provider_endpoints(providers, domain):
     probes = []
     for provider in providers.values():
         name = provider["name"]
@@ -348,14 +331,19 @@ def render(repository, homelab, output):
         yaml.safe_load(path.read_text())["name"]
         for path in sorted((homelab / "data/dns").glob("*.yaml"))
     ]
-    inventory.extend(machine_service_inventory(homelab))
+    machines = yaml.safe_load((homelab / "data/machines.yaml").read_text())
+    domain = yaml.safe_load((homelab / "data/domains.yaml").read_text())["domains"][
+        "infrastructure"
+    ]
+    providers = yaml.safe_load((homelab / "data/providers.yaml").read_text())[
+        "providers"
+    ]
+    inventory.extend(machine_service_inventory(machines["machines"], domain))
     deployment = tomllib.loads((Path(__file__).parent / "deployment.toml").read_text())
     inventory.extend(
         {
-            "group": "Operations",
             "monitor": f"https://{hostname}",
             "name": "Gatus",
-            "source": "Flylab/gatus/deployment.toml",
             "type": "fly",
         }
         for hostname in deployment["certificates"]
@@ -367,8 +355,8 @@ def render(repository, homelab, output):
     with (output / "secrets.env").open("a") as secret_file:
         for name, reference in sorted(secrets.items()):
             secret_file.write(f"{name}={{{{ {reference} }}}}\n")
-    infrastructure = infrastructure_endpoints(homelab)
-    providers = provider_endpoints(homelab)
+    infrastructure = infrastructure_endpoints(machines, domain)
+    providers = provider_endpoints(providers, domain)
     config_directory = output / "app/config"
     (config_directory / "services.yaml").write_text(
         yaml.safe_dump({"endpoints": probes}, sort_keys=False)

@@ -15,10 +15,8 @@ SPEC.loader.exec_module(RENDER)
 def route(**changes):
     return {
         "cluster": "mbk",
-        "group": "Media",
         "monitor": "https://media.example.com",
         "name": "Media",
-        "source": "HTTPRoute/media/media",
         "type": "route",
         **changes,
     }
@@ -77,7 +75,6 @@ class EndpointsTest(unittest.TestCase):
                 route(),
                 route(
                     cluster=None,
-                    group="Appliances",
                     monitor="http://nas.example.com:8080",
                     name="NAS",
                     type="machine",
@@ -95,110 +92,86 @@ class EndpointsTest(unittest.TestCase):
 
 class InfrastructureTest(unittest.TestCase):
     def test_homelab_identity_reachability_and_exclusions(self):
-        with tempfile.TemporaryDirectory() as directory:
-            repository = Path(directory)
-            (repository / "data").mkdir()
-            (repository / "data/domains.yaml").write_text(
-                "domains:\n  infrastructure: example.net\n"
-            )
-            machines = {
-                "mbk": {
-                    "backup": {"type": "backup", "public_ipv4": "192.0.2.1"},
-                    "desktop": {"type": "server", "monitoring": False},
-                    "laptop": {"platform": "macos"},
-                    "sensor": {"type": "appliance", "tailscale": {"enabled": False}},
-                    "server": {
-                        "hostname": "renamed",
-                        "type": "custom",
-                    },
-                },
+        machines = {
+            "mbk": {
+                "backup": {"type": "backup", "public_ipv4": "192.0.2.1"},
+                "desktop": {"type": "server", "monitoring": False},
+                "laptop": {"platform": "macos"},
+                "sensor": {"type": "appliance", "tailscale": {"enabled": False}},
+                "server": {"hostname": "renamed", "type": "custom"},
             }
-            (repository / "data/machines.yaml").write_text(
-                yaml.safe_dump(
-                    {
-                        "machines": machines,
-                        "types": {
-                            "appliance": "Appliances",
-                            "backup": "Servers",
-                            "custom": "Custom",
-                            "server": "Servers",
-                        },
-                    }
-                )
-            )
-            probes = RENDER.infrastructure_endpoints(repository)
-            self.assertEqual(
-                [probe["url"] for probe in probes],
-                [
-                    "icmp://192.0.2.1",
-                    "icmp://renamed.mbk.example.net",
-                    "icmp://backup.mbk.example.net",
-                ],
-            )
-            self.assertEqual(probes[0]["group"], "External (Servers)")
-            self.assertEqual(probes[1]["group"], "Internal (Custom)")
-            self.assertEqual(probes[1]["name"], "mbk-renamed")
-            self.assertEqual(
-                probes[1]["conditions"],
-                ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
-            )
+        }
+        inventory = {
+            "machines": machines,
+            "types": {
+                "appliance": "Appliances",
+                "backup": "Servers",
+                "custom": "Custom",
+                "server": "Servers",
+            },
+        }
+        probes = RENDER.infrastructure_endpoints(inventory, "example.net")
+        self.assertEqual(
+            [probe["url"] for probe in probes],
+            [
+                "icmp://192.0.2.1",
+                "icmp://renamed.mbk.example.net",
+                "icmp://backup.mbk.example.net",
+            ],
+        )
+        self.assertEqual(probes[0]["group"], "External (Servers)")
+        self.assertEqual(probes[1]["group"], "Internal (Custom)")
+        self.assertEqual(probes[1]["name"], "mbk-renamed")
+        self.assertEqual(
+            probes[1]["conditions"], ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"]
+        )
 
 
 class MachineServicesTest(unittest.TestCase):
     def test_only_declared_services_are_monitored(self):
-        with tempfile.TemporaryDirectory() as directory:
-            repository = Path(directory)
-            (repository / "data").mkdir()
-            (repository / "data/domains.yaml").write_text(
-                "domains: {infrastructure: example.net}\n"
-            )
-            (repository / "data/machines.yaml").write_text(
-                yaml.safe_dump(
-                    {
-                        "machines": {
-                            "lab": {
-                                "storage": {
-                                    "hostname": "renamed",
-                                    "services": {
-                                        "management": {
-                                            "monitoring": True,
-                                            "name": "Console",
-                                            "port": 8443,
-                                            "scheme": "https",
-                                        },
-                                        "sync": {
-                                            "name": "Sync",
-                                            "monitoring": True,
-                                            "scheme": "http",
-                                            "port": 80,
-                                        },
-                                        "hidden": {"scheme": "http", "port": 1234},
-                                    },
-                                },
-                                "offline": {
-                                    "monitoring": False,
-                                    "services": {
-                                        "management": {
-                                            "monitoring": True,
-                                            "port": 443,
-                                            "scheme": "https",
-                                        }
-                                    },
-                                },
+        inventory = {
+            "machines": {
+                "lab": {
+                    "storage": {
+                        "hostname": "renamed",
+                        "services": {
+                            "management": {
+                                "monitoring": True,
+                                "name": "Console",
+                                "port": 8443,
+                                "scheme": "https",
+                            },
+                            "sync": {
+                                "name": "Sync",
+                                "monitoring": True,
+                                "scheme": "http",
+                                "port": 80,
+                            },
+                            "hidden": {"scheme": "http", "port": 1234},
+                        },
+                    },
+                    "offline": {
+                        "monitoring": False,
+                        "services": {
+                            "management": {
+                                "monitoring": True,
+                                "port": 443,
+                                "scheme": "https",
                             }
-                        }
-                    }
-                )
-            )
-            entries = RENDER.machine_service_inventory(repository)
-            self.assertEqual(
-                {entry["name"]: entry["monitor"] for entry in entries},
-                {
-                    "Console": "https://renamed.lab.example.net:8443",
-                    "Sync": "http://renamed.lab.example.net",
-                },
-            )
-            self.assertFalse(any(entry["type"] == "homepage" for entry in entries))
+                        },
+                    },
+                }
+            }
+        }
+        entries = RENDER.machine_service_inventory(inventory["machines"], "example.net")
+        self.assertEqual(
+            {entry["name"]: entry["monitor"] for entry in entries},
+            {
+                "Console": "https://renamed.lab.example.net:8443",
+                "Sync": "http://renamed.lab.example.net",
+            },
+        )
+        self.assertFalse(any(entry["type"] == "homepage" for entry in entries))
 
 
 class MonitoringCredentialsTest(unittest.TestCase):
@@ -339,54 +312,41 @@ class OrderingTest(unittest.TestCase):
 
 class ProviderEndpointsTest(unittest.TestCase):
     def test_provider_urls_resolvers_and_domain_come_from_homelab(self):
-        with tempfile.TemporaryDirectory() as directory:
-            repository = Path(directory)
-            (repository / "data").mkdir()
-            (repository / "data/domains.yaml").write_text(
-                "domains:\n  infrastructure: example.net\n"
-            )
-            source = repository / "data/providers.yaml"
-            source.write_text(
-                yaml.safe_dump(
-                    {
-                        "providers": {
-                            "example": {
-                                "name": "Example",
-                                "url": "https://provider.example.com",
-                                "conditions": ["[STATUS] == 200"],
-                                "dns": {
-                                    "query-type": "A",
-                                    "url": "192.0.2.53",
-                                },
-                            }
-                        }
-                    }
+        providers = {
+            "providers": {
+                "example": {
+                    "name": "Example",
+                    "url": "https://provider.example.com",
+                    "conditions": ["[STATUS] == 200"],
+                    "dns": {"query-type": "A", "url": "192.0.2.53"},
+                }
+            }
+        }
+        probes = RENDER.provider_endpoints(providers["providers"], "example.net")
+        self.assertEqual(
+            [probe["name"] for probe in probes], ["Example", "Example DNS"]
+        )
+        self.assertEqual(probes[0]["url"], "https://provider.example.com")
+        self.assertEqual(probes[0]["conditions"], ["[STATUS] == 200"])
+        self.assertEqual(probes[1]["url"], "192.0.2.53")
+        self.assertEqual(
+            probes[1]["dns"], {"query-name": "example.net", "query-type": "A"}
+        )
+        providers = {
+            "providers": {
+                "different": {
+                    "name": "Different",
+                    "url": "https://different.example.com",
+                    "conditions": ["[STATUS] == 200"],
+                }
+            }
+        }
+        self.assertEqual(
+            [
+                probe["name"]
+                for probe in RENDER.provider_endpoints(
+                    providers["providers"], "example.net"
                 )
-            )
-            probes = RENDER.provider_endpoints(repository)
-            self.assertEqual(
-                [probe["name"] for probe in probes], ["Example", "Example DNS"]
-            )
-            self.assertEqual(probes[0]["url"], "https://provider.example.com")
-            self.assertEqual(probes[0]["conditions"], ["[STATUS] == 200"])
-            self.assertEqual(probes[1]["url"], "192.0.2.53")
-            self.assertEqual(
-                probes[1]["dns"], {"query-name": "example.net", "query-type": "A"}
-            )
-            source.write_text(
-                yaml.safe_dump(
-                    {
-                        "providers": {
-                            "different": {
-                                "name": "Different",
-                                "url": "https://different.example.com",
-                                "conditions": ["[STATUS] == 200"],
-                            }
-                        }
-                    }
-                )
-            )
-            self.assertEqual(
-                [probe["name"] for probe in RENDER.provider_endpoints(repository)],
-                ["Different"],
-            )
+            ],
+            ["Different"],
+        )

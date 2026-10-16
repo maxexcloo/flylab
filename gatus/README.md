@@ -72,8 +72,10 @@ machines with `monitoring: false` are also excluded. The `types` mapping in
 Homelab supplies the display group for each machine type.
 
 Homelab's `data/providers.yaml` owns provider bookmarks, widget templates and
-native Gatus probe settings under `gatus`. Probes default to the provider's name
-and website URL; DNS probes default to Homelab's infrastructure domain.
+native Gatus probe settings in top-level `alerts`, `conditions` and `dns` fields.
+A provider with `conditions` receives a website probe using its name and URL;
+`dns` declares a separate DNS probe, with the query name defaulting to Homelab's
+infrastructure domain.
 Kubelab consumes the same inventory for Homepage.
 
 ## Monitoring

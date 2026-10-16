@@ -84,14 +84,7 @@ jobs:
           KUBELAB_REVISION: ${{ inputs.kubelab_revision }}
           SERVICE_DIRECTORY: ${{ matrix.deployment.directory }}
         run: mise run render "$SERVICE_DIRECTORY"
-      - name: Delete
-        if: matrix.deployment.action == 'delete'
-        env:
-          FLY_API_TOKEN: op://Flylab/Fly.io/password
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        run: op run -- uv run --no-project --python python .github/scripts/fly.py
-      - name: Deploy
-        if: matrix.deployment.action == 'deploy'
+      - name: Reconcile
         env:
           FLY_API_TOKEN: op://Flylab/Fly.io/password
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
