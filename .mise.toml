@@ -5,6 +5,8 @@ shell_paths = "*/*.sh"
 [tools]
 flyctl = "0.4.117"
 hadolint = "2.15.1"
+# Match the Kubernetes renderer owned by Kubelab.
+kubectl = "1.37.1"
 "pipx:check-jsonschema" = "0.38.2"
 
 # Development
@@ -13,6 +15,7 @@ depends = [
   "check:actions",
   "check:prettier",
   "check:python",
+  "check:render",
   "check:shell",
   "check:updates",
   "check:whitespace",
@@ -22,6 +25,10 @@ run = """
 check-jsonschema --builtin-schema github-workflows .github/workflows/*.yaml
 hadolint --failure-threshold error */Dockerfile
 """
+
+[tasks."check:render"]
+description = "Render Gatus From The Homelab & Kubelab Inventories"
+run = 'uv run --no-project --python python .github/scripts/fly.py --render gatus'
 
 [tasks.cleanup]
 description = "Remove Rendered Artefacts, Caches, & Bytecode"
