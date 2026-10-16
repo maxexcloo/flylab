@@ -25,8 +25,9 @@ Services can also declare required native Fly secrets that deployment preserves.
 3. GitHub Actions resolves `secrets.env` references through 1Password. Values pass
    directly to Fly over standard input; they are never written to files or
    workflow artefacts.
-4. Deployment reconciles certificates and secrets, deploys, verifies the HTTP GET checks declared in `fly.toml` on
-   the configured HTTP port and reconciles machine count. Secrets absent from
+4. Deployment reconciles certificates and secrets, deploys and reconciles machine
+   count. It waits for native Fly health checks to pass on every machine, including
+   machines started or added after deployment. Secrets absent from
    both the generated references and required native secrets are staged for removal.
 
 Fly settings live in `<service>/fly.toml`; `deployment.toml` declares the selection
@@ -48,8 +49,8 @@ mise run render <service>
 ```
 
 Checks discover shared tests in `tests/` and each configured service’s `tests/`,
-using that service’s optional `requirements.txt`. HTTP health checks must use GET
-without custom headers for post-deployment verification.
+using that service’s optional `requirements.txt`. Each service declares native
+HTTP service health checks in `fly.toml`.
 
 Rendering resolves no secrets and makes no deployment changes. Generated output
 stays under `.render/`; `mise run cleanup` removes it. Use `mise run fmt` to format

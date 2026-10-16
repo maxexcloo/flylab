@@ -1,7 +1,5 @@
 import importlib.util
 import os
-import shlex
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,7 +13,7 @@ SPEC.loader.exec_module(FLY)
 
 
 class DeploymentTest(unittest.TestCase):
-    def test_health_paths_and_port_come_from_fly_configuration(self):
+    def test_native_health_checks_are_required_without_restricting_their_protocol(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             service = root / "example"
@@ -24,56 +22,52 @@ class DeploymentTest(unittest.TestCase):
                 'certificates = []\nkey = "example"\nmachine_count = 1\n'
             )
             config = service / "fly.toml"
-            config.write_text(
-                'app = "example"\n[http_service]\ninternal_port = 9090\n'
-                '[[http_service.checks]]\npath = "/ready"\n'
-                '[[http_service.checks]]\npath = "/alive?full=true"\n'
-            )
             with patch.object(FLY, "Path", side_effect=lambda value: root / value):
-                deployment = FLY.load_deployments()[0]
-                self.assertEqual(deployment["port"], 9090)
-                self.assertEqual(
-                    deployment["health_paths"], ["/ready", "/alive?full=true"]
+                config.write_text(
+                    'app = "example"\n[http_service]\ninternal_port = 9090\n'
+                    '[[http_service.checks]]\npath = "/ready"\nmethod = "HEAD"\n'
+                    'protocol = "https"\nheaders = { X-Health = "example" }\n'
                 )
-                for path in ("ready", "//other.example/ready", "/ready#fragment"):
-                    config.write_text(
-                        'app = "example"\n[http_service]\ninternal_port = 9090\n'
-                        f'[[http_service.checks]]\npath = "{path}"\n'
-                    )
-                    with self.subTest(path=path), self.assertRaises(ValueError):
-                        FLY.load_deployments()
+                self.assertEqual(FLY.load_deployments()[0]["app"], "example")
+                config.write_text(
+                    'app = "example"\n[http_service]\ninternal_port = 9090\n'
+                )
+                with self.assertRaisesRegex(ValueError, "native Fly health checks"):
+                    FLY.load_deployments()
 
-    def test_health_verification_checks_all_paths_with_shell_quoting(self):
-        paths = ["/ready", "/alive?value='quoted'&full=true"]
-        with patch.object(FLY.subprocess, "run") as run:
-            FLY.verify("example", 9090, paths)
-        command = run.call_args.args[0][-1]
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            log = root / "requests"
-            wget = root / "wget"
-            wget.write_text('#!/bin/sh\nprintf "%s\\n" "$@" >> "$HEALTH_LOG"\n')
-            wget.chmod(0o755)
-            subprocess.run(
-                shlex.split(command),
-                check=True,
-                env=dict(
-                    os.environ, HEALTH_LOG=str(log), PATH=f"{root}:{os.environ['PATH']}"
-                ),
-            )
-            urls = [
-                line for line in log.read_text().splitlines() if line.startswith("http")
-            ]
-            self.assertEqual(urls, [f"http://127.0.0.1:9090{path}" for path in paths])
+    def test_native_health_wait_requires_every_machine_and_check(self):
+        passing = {"status": "passing"}
+        results = [
+            {},
+            {"one": [passing]},
+            {"one": [passing], "two": []},
+            {"one": [passing], "two": [passing, {"status": "critical"}]},
+            {"one": [passing], "two": [passing]},
+        ]
+        with (
+            patch.object(FLY, "fly_json", side_effect=results) as checks,
+            patch.object(FLY.time, "sleep") as sleep,
+        ):
+            FLY.verify("example", 2)
+        self.assertEqual(checks.call_count, 5)
+        checks.assert_called_with(["checks", "list"], "example")
+        self.assertEqual(sleep.call_count, 4)
+
+    def test_unhealthy_machines_fail_deployment_after_bounded_wait(self):
+        with (
+            patch.object(FLY, "fly_json", return_value={"one": []}),
+            patch.object(FLY.time, "sleep") as sleep,
+            self.assertRaisesRegex(RuntimeError, "every example machine"),
+        ):
+            FLY.verify("example", 1)
+        self.assertEqual(sleep.call_count, 59)
 
     def test_stopped_machines_start_before_health_verification(self):
         deployment = {
             "app": "example",
             "certificates": [],
             "directory": "example",
-            "health_paths": ["/ready"],
             "machine_count": 1,
-            "port": 8080,
         }
         calls = Mock()
         with tempfile.TemporaryDirectory() as directory:
@@ -105,9 +99,7 @@ class DeploymentTest(unittest.TestCase):
                 ["flyctl", "machine", "start", "cold", "--app", "example"],
             ],
         )
-        self.assertEqual(
-            calls.mock_calls[-1], unittest.mock.call.verify("example", 8080, ["/ready"])
-        )
+        self.assertEqual(calls.mock_calls[-1], unittest.mock.call.verify("example", 1))
 
 
 class SecretReconciliationTest(unittest.TestCase):

@@ -7,12 +7,11 @@ import argparse
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
+import time
 import tomllib
 from pathlib import Path
-from urllib.parse import urlsplit
 
 SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=.*$")
 SERVICE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -71,7 +70,7 @@ def deploy(deployment):
                 ["flyctl", "machine", "start", machine["id"], "--app", app],
                 check=True,
             )
-    verify(app, deployment["port"], deployment["health_paths"])
+    verify(app, deployment["machine_count"])
 
 
 def fly_json(arguments, app):
@@ -92,8 +91,6 @@ def load_deployments():
         deployment.update(
             app=config["app"],
             directory=path.parent.name,
-            health_paths=[check["path"] for check in config["http_service"]["checks"]],
-            port=config["http_service"]["internal_port"],
         )
         if not SERVICE_PATTERN.fullmatch(deployment["app"]):
             raise ValueError("Invalid Fly app")
@@ -104,26 +101,8 @@ def load_deployments():
             or deployment["machine_count"] < 1
         ):
             raise ValueError("Expected a positive machine count")
-        if type(deployment["port"]) is not int or not 1 <= deployment["port"] <= 65535:
-            raise ValueError("Invalid internal port")
-        if not deployment["health_paths"] or any(
-            check.get("method", "GET") != "GET"
-            or check.get("protocol", "http") != "http"
-            or check.get("headers")
-            for check in config["http_service"]["checks"]
-        ):
-            raise ValueError(
-                "Health verification requires HTTP GET checks without headers"
-            )
-        for health_path in deployment["health_paths"]:
-            parsed = urlsplit(health_path)
-            if (
-                not health_path.startswith("/")
-                or parsed.netloc
-                or parsed.fragment
-                or any(character.isspace() for character in health_path)
-            ):
-                raise ValueError("Invalid health check path")
+        if not config.get("http_service", {}).get("checks"):
+            raise ValueError("Configure native Fly health checks in fly.toml")
         required = deployment.get("required_secrets", [])
         if not isinstance(required, list) or any(
             not isinstance(name, str) or not re.fullmatch(r"[A-Z0-9_]+", name)
@@ -254,33 +233,18 @@ def render(service):
     return render_path
 
 
-def verify(app, port, paths):
-    checks = " && ".join(
-        shlex.join(
-            [
-                "wget",
-                "--output-document=-",
-                "--timeout=5",
-                f"http://127.0.0.1:{port}{path}",
-            ]
-        )
-        for path in paths
-    )
-    command = (
-        f"for attempt in $(seq 1 30); do {checks} && exit 0; sleep 3; done; exit 1"
-    )
-    subprocess.run(
-        [
-            "flyctl",
-            "ssh",
-            "console",
-            "--app",
-            app,
-            "--command",
-            shlex.join(["sh", "-c", command]),
-        ],
-        check=True,
-    )
+def verify(app, machine_count):
+    # Scaling and starting machines happen after deploy's native health wait.
+    for attempt in range(60):
+        machines = fly_json(["checks", "list"], app)
+        if len(machines) == machine_count and all(
+            checks and all(check["status"] == "passing" for check in checks)
+            for checks in machines.values()
+        ):
+            return
+        if attempt < 59:
+            time.sleep(5)
+    raise RuntimeError(f"Native Fly health checks did not pass on every {app} machine")
 
 
 def main():
