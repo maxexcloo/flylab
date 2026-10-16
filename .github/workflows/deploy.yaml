@@ -45,6 +45,8 @@ jobs:
           persist-credentials: false
       - name: Set Up Shared Tools & Tasks
         uses: maxexcloo/dotfiles/.github/actions/mise@main
+        with:
+          tools: actionlint hadolint node pipx:check-jsonschema prettier python ruff shellcheck updatecli uv
       - name: Run Checks
         run: mise run check
       - name: Select Deployments
@@ -73,6 +75,8 @@ jobs:
           persist-credentials: false
       - name: Set Up Shared Tools & Tasks
         uses: maxexcloo/dotfiles/.github/actions/mise@main
+        with:
+          tools: 1password-cli flyctl python uv
       - name: Render
         if: matrix.deployment.action == 'deploy'
         env:
