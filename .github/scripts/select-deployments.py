@@ -19,23 +19,22 @@ def main():
     if action not in {"delete", "deploy"}:
         raise SystemExit(f"Invalid action: {action}")
 
-    if action == "delete":
-        if not selection:
-            raise SystemExit("An app is required for deletion")
-        deployments = [{"app": selection, "key": selection}]
-    else:
-        configured_deployments = load_deployments()
+    if action == "delete" and not selection:
+        raise SystemExit("An app is required for deletion")
 
-        if selection:
-            deployments = [
-                deployment
-                for deployment in configured_deployments
-                if selection in {deployment["key"], deployment["app"]}
-            ]
-            if len(deployments) != 1:
-                raise SystemExit("Expected one matching Fly deployment")
-        else:
-            deployments = configured_deployments
+    configured_deployments = load_deployments()
+    if selection:
+        deployments = [
+            deployment
+            for deployment in configured_deployments
+            if selection in {deployment["key"], deployment["app"]}
+        ]
+        if not deployments and action == "delete":
+            deployments = [{"app": selection, "key": selection}]
+        if len(deployments) != 1:
+            raise SystemExit("Expected one matching Fly deployment")
+    else:
+        deployments = configured_deployments
 
     deployments = [dict(deployment, action=action) for deployment in deployments]
 

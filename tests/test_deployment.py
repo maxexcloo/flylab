@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 import tempfile
 import unittest
@@ -10,6 +11,66 @@ SPEC = importlib.util.spec_from_file_location(
 )
 FLY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(FLY)
+
+
+class DeploymentSelectionTest(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location(
+            "selection",
+            Path(__file__).parents[1] / ".github/scripts/select-deployments.py",
+        )
+        self.selection = importlib.util.module_from_spec(spec)
+        with patch.dict("sys.modules", {"fly": FLY}):
+            spec.loader.exec_module(self.selection)
+        self.deployments = [{"app": "example-app", "key": "example-key"}]
+
+    def select(self, action, selection):
+        with tempfile.TemporaryDirectory() as directory:
+            event = Path(directory) / "event.json"
+            output = Path(directory) / "output"
+            event.write_text(
+                json.dumps({"inputs": {"action": action, "deployment": selection}})
+            )
+            with (
+                patch.dict(
+                    os.environ,
+                    {"GITHUB_EVENT_PATH": str(event), "GITHUB_OUTPUT": str(output)},
+                ),
+                patch.object(
+                    self.selection, "load_deployments", return_value=self.deployments
+                ),
+            ):
+                self.selection.main()
+            return json.loads(output.read_text().removeprefix("deployments="))
+
+    def test_ambiguous_selection_fails_for_both_actions(self):
+        self.deployments.append({"app": "other-app", "key": "example-app"})
+        for action in ("delete", "deploy"):
+            with self.subTest(action=action), self.assertRaises(SystemExit):
+                self.select(action, "example-app")
+
+    def test_deletion_accepts_retired_app_names(self):
+        self.assertEqual(
+            self.select("delete", "retired-app"),
+            [{"app": "retired-app", "key": "retired-app", "action": "delete"}],
+        )
+
+    def test_deletion_requires_explicit_selection(self):
+        with self.assertRaisesRegex(SystemExit, "required for deletion"):
+            self.select("delete", "")
+
+    def test_keys_and_app_names_resolve_consistently(self):
+        for action in ("delete", "deploy"):
+            for selection in ("example-app", "example-key"):
+                with self.subTest(action=action, selection=selection):
+                    self.assertEqual(
+                        self.select(action, selection),
+                        [dict(self.deployments[0], action=action)],
+                    )
+
+    def test_unknown_deployments_fail(self):
+        with self.assertRaisesRegex(SystemExit, "one matching Fly deployment"):
+            self.select("deploy", "unknown")
 
 
 class DeploymentTest(unittest.TestCase):
@@ -100,6 +161,34 @@ class DeploymentTest(unittest.TestCase):
             ],
         )
         self.assertEqual(calls.mock_calls[-1], unittest.mock.call.verify("example", 1))
+
+
+class RenderingTest(unittest.TestCase):
+    def test_render_all_discovers_services_and_runs_optional_renderers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("alpha", "bravo"):
+                service = root / name
+                service.mkdir()
+                (service / "deployment.toml").write_text(
+                    f'certificates = []\nkey = "{name}"\nmachine_count = 1\n'
+                )
+                (service / "fly.toml").write_text(
+                    f'app = "{name}"\n[[http_service.checks]]\npath = "/health"\n'
+                )
+            (root / "alpha/render.py").touch()
+            (root / "alpha/requirements.txt").write_text("example==1.0\n")
+            with (
+                patch.object(FLY, "Path", side_effect=lambda value: root / value),
+                patch("sys.argv", ["fly.py", "--render-all"]),
+                patch.object(FLY.subprocess, "run") as run,
+            ):
+                FLY.main()
+            self.assertEqual(run.call_count, 1)
+            self.assertIn(str(root / "alpha/requirements.txt"), run.call_args.args[0])
+            self.assertIn(str(root / "alpha/render.py"), run.call_args.args[0])
+            for name in ("alpha", "bravo"):
+                self.assertTrue((root / ".render" / name / "fly.toml").is_file())
 
 
 class SecretReconciliationTest(unittest.TestCase):

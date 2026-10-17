@@ -11,11 +11,22 @@ kubectl = "1.37.1"
 
 # Development
 [tasks.check]
+depends = ["check:render", "check:static"]
+
+# The published shared configuration does not yet provide Oxfmt tasks.
+[tasks."check:oxfmt"]
+run = "oxfmt --check --no-error-on-unmatched-pattern ."
+
+[tasks."check:render"]
+description = "Render Every Configured Service Without Resolving Secrets"
+run = 'uv run --no-project --python python .github/scripts/fly.py --render-all'
+
+[tasks."check:static"]
+description = "Check Repository Files & Run Tests Without Fetching Inventories"
 depends = [
   "check:actions",
-  "check:prettier",
+  "check:oxfmt",
   "check:python",
-  "check:render",
   "check:shell",
   "check:updates",
   "check:whitespace",
@@ -25,10 +36,6 @@ run = """
 check-jsonschema --builtin-schema github-workflows .github/workflows/*.yaml
 hadolint --failure-threshold error */Dockerfile
 """
-
-[tasks."check:render"]
-description = "Render Gatus From The Homelab & Kubelab Inventories"
-run = 'uv run --no-project --python python .github/scripts/fly.py --render gatus'
 
 [tasks.cleanup]
 description = "Remove Rendered Artefacts, Caches, & Bytecode"
@@ -40,7 +47,10 @@ find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
 """
 
 [tasks.fmt]
-depends = ["fmt:prettier", "fmt:python"]
+depends = ["fmt:oxfmt", "fmt:python"]
+
+[tasks."fmt:oxfmt"]
+run = "oxfmt --write --no-error-on-unmatched-pattern ."
 
 [tasks.render]
 description = "Render A Service Without Resolving Secrets Or Deploying"

@@ -46,9 +46,12 @@ jobs:
       - name: Set Up Shared Tools & Tasks
         uses: maxexcloo/dotfiles/.github/actions/mise@main
         with:
-          tools: actionlint hadolint jq kubectl node pipx:check-jsonschema prettier python ruff shellcheck updatecli uv yq
+          tools: actionlint hadolint jq kubectl node oxfmt pipx:check-jsonschema python ruff shellcheck updatecli uv yq
       - name: Run Checks
-        run: mise run check
+        run: mise run check:static
+      - name: Check Rendering
+        if: github.event_name == 'pull_request'
+        run: mise run check:render
       - name: Select Deployments
         if: github.event_name != 'pull_request'
         id: select

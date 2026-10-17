@@ -249,10 +249,18 @@ def verify(app, machine_count):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--render", metavar="SERVICE")
+    rendering = parser.add_mutually_exclusive_group()
+    rendering.add_argument("--render", metavar="SERVICE")
+    rendering.add_argument("--render-all", action="store_true")
     args = parser.parse_args()
-    if args.render:
-        print(render(args.render))
+    if args.render or args.render_all:
+        services = (
+            [args.render]
+            if args.render
+            else [deployment["directory"] for deployment in load_deployments()]
+        )
+        for service in services:
+            print(render(service))
         return
     deployment = json.loads(os.environ["DEPLOYMENT"])
     action = deployment["action"]

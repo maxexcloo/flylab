@@ -19,6 +19,9 @@ Services can also declare required native Fly secrets that deployment preserves.
 1. Pushes to `main`, except Markdown-only changes, deploy every directory
    containing `deployment.toml`. Manual runs can select a deployment key or Fly
    app name, or explicitly delete an app.
+   Pull requests render every configured service. Deployment runs check repository
+   files and tests, then render each selected service once using the requested
+   inventory revisions before resolving credentials. Deletion skips inventory rendering.
 2. Each service is copied into `.render/`. An optional service-local `render.py`
    prepares generated application files without deployment credentials. Its optional
    `requirements.txt` supplies renderer dependencies and is also used by its service tests.
