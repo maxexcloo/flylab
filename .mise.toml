@@ -7,6 +7,8 @@ flyctl = "0.4.117"
 hadolint = "2.15.1"
 # Match the Kubernetes renderer owned by Kubelab.
 kubectl = "1.37.1"
+# Keep Oxfmt active until the published shared tools include it.
+oxfmt = "latest"
 "pipx:check-jsonschema" = "0.38.2"
 
 # Development
