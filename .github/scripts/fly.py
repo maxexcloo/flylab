@@ -8,6 +8,7 @@ import time
 import tomllib
 from pathlib import Path
 
+DEPLOYMENT_KEYS = {"certificates", "key", "machine_count", "required_secrets"}
 SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=.*$")
 SERVICE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
@@ -82,6 +83,9 @@ def load_deployments():
     keys = set()
     for path in sorted(Path(".").glob("*/deployment.toml")):
         deployment = tomllib.loads(path.read_text())
+        unknown = set(deployment) - DEPLOYMENT_KEYS
+        if unknown:
+            raise ValueError(f"Unknown deployment keys: {', '.join(sorted(unknown))}")
         config = tomllib.loads((path.parent / "fly.toml").read_text())
         deployment.update(
             app=config["app"],
