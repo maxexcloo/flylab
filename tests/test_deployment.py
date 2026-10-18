@@ -82,6 +82,20 @@ class DeploymentSelectionTest(unittest.TestCase):
 
 
 class DeploymentTest(unittest.TestCase):
+    def test_unknown_deployment_keys_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            service = root / "example"
+            service.mkdir()
+            (service / "deployment.toml").write_text(
+                'certificates = []\nkey = "example"\nmachine_count = 1\nregion = "syd"\n'
+            )
+            with (
+                patch.object(FLY, "Path", side_effect=lambda value: root / value),
+                self.assertRaisesRegex(ValueError, "Unknown deployment keys: region"),
+            ):
+                FLY.load_deployments()
+
     def test_native_health_checks_are_required_without_restricting_their_protocol(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
