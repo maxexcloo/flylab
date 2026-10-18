@@ -1,8 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = []
-# ///
-
 import argparse
 import hashlib
 import ipaddress
