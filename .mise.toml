@@ -53,3 +53,11 @@ usage = 'arg "<service>"'
 [tasks."test:python"]
 description = "Test Shared Tooling & Service Suites"
 run = "uv run --no-project --python python .github/scripts/test.py"
+
+# Dependencies
+# Keep Kubectl aligned with the renderer owned by Kubelab.
+[tasks."dependencies:mise:check"]
+run = "mise upgrade --bump --dry-run --exclude kubectl --local --no-prune"
+
+[tasks."dependencies:mise:update"]
+run = "mise upgrade --bump --exclude kubectl --local --no-prune"
