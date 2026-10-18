@@ -60,12 +60,6 @@ def deploy(deployment):
         ],
         check=True,
     )
-    for machine in fly_json(["machines", "list"], app):
-        if machine["state"] in {"stopped", "suspended"}:
-            subprocess.run(
-                ["flyctl", "machine", "start", machine["id"], "--app", app],
-                check=True,
-            )
     verify(app, deployment["machine_count"])
 
 
@@ -233,7 +227,7 @@ def render(service):
 
 
 def verify(app, machine_count):
-    # Scaling and starting machines happen after deploy's native health wait.
+    # Scaling happens after deploy's native health wait.
     for attempt in range(60):
         machines = fly_json(["checks", "list"], app)
         if len(machines) == machine_count and all(

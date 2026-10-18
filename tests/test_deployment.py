@@ -145,7 +145,7 @@ class DeploymentTest(unittest.TestCase):
             FLY.verify("example", 1)
         self.assertEqual(sleep.call_count, 59)
 
-    def test_stopped_machines_start_before_health_verification(self):
+    def test_scaling_precedes_health_verification(self):
         deployment = {
             "app": "example",
             "certificates": [],
@@ -162,14 +162,6 @@ class DeploymentTest(unittest.TestCase):
                 patch.object(FLY, "app_exists", return_value=True),
                 patch.object(FLY, "reconcile_certificates"),
                 patch.object(FLY, "reconcile_secrets"),
-                patch.object(
-                    FLY,
-                    "fly_json",
-                    return_value=[
-                        {"id": "cold", "state": "stopped"},
-                        {"id": "warm", "state": "started"},
-                    ],
-                ),
                 patch.object(FLY.subprocess, "run", calls.run),
                 patch.object(FLY, "verify", calls.verify),
             ):
@@ -179,7 +171,6 @@ class DeploymentTest(unittest.TestCase):
             [
                 ["flyctl", "deploy", "--app", "example", "--config", "fly.toml"],
                 ["flyctl", "scale", "count", "1", "--app", "example", "--yes"],
-                ["flyctl", "machine", "start", "cold", "--app", "example"],
             ],
         )
         self.assertEqual(calls.mock_calls[-1], unittest.mock.call.verify("example", 1))
