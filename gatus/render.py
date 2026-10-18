@@ -78,13 +78,13 @@ def endpoints(inventory, zones):
     ]
 
 
-def infrastructure_endpoints(inventory, domain, clusters=None, services_domain=None):
+def infrastructure_endpoints(inventory, domain, clusters, services_domain):
     groups = inventory["types"]
     public_hosts = {
         cluster.get(
             "public_node", cluster["api_node"]
         ): f"public.{name}.{services_domain}"
-        for name, cluster in (clusters or {}).items()
+        for name, cluster in clusters.items()
     }
     probes = []
     for network, name, hostname, host, machine in monitored_machines(
@@ -102,8 +102,6 @@ def infrastructure_endpoints(inventory, domain, clusters=None, services_domain=N
         if address:
             targets["External"] = str(ipaddress.ip_address(address))
         elif machine.get("oci", {}).get("assign_public_ip") and name in public_hosts:
-            if not services_domain:
-                raise ValueError("Missing service domain for the public cluster node")
             targets["External"] = public_hosts[name]
         for scope, target in targets.items():
             probes.append(

@@ -136,7 +136,9 @@ class InfrastructureTest(unittest.TestCase):
                 "server": "Servers",
             },
         }
-        probes = RENDER.infrastructure_endpoints(inventory, "example.net")
+        probes = RENDER.infrastructure_endpoints(
+            inventory, "example.net", {}, "example.dev"
+        )
         self.assertEqual(
             [probe["url"] for probe in probes],
             [
