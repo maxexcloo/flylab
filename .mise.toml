@@ -4,11 +4,11 @@ ruff_args = "--extend-select I"
 shell_paths = "*/*.sh"
 
 [tools]
-flyctl = "0.4.117"
-hadolint = "2.15.1"
+flyctl = "latest"
+hadolint = "latest"
 # Match the Kubernetes renderer owned by Kubelab; dependency updates skip it.
 kubectl = "1.37.1"
-"pipx:check-jsonschema" = "0.38.2"
+"pipx:check-jsonschema" = "latest"
 
 # Development
 [tasks.check]
