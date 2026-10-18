@@ -7,17 +7,11 @@ flyctl = "0.4.117"
 hadolint = "2.15.1"
 # Match the Kubernetes renderer owned by Kubelab.
 kubectl = "1.37.1"
-# Keep Oxfmt active until the published shared tools include it.
-oxfmt = "latest"
 "pipx:check-jsonschema" = "0.38.2"
 
 # Development
 [tasks.check]
 depends = ["check:render", "check:static"]
-
-# The published shared configuration does not yet provide Oxfmt tasks.
-[tasks."check:oxfmt"]
-run = "oxfmt --check --no-error-on-unmatched-pattern ."
 
 [tasks."check:render"]
 description = "Render Every Configured Service Without Resolving Secrets"
@@ -50,9 +44,6 @@ find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
 
 [tasks.fmt]
 depends = ["fmt:oxfmt", "fmt:python"]
-
-[tasks."fmt:oxfmt"]
-run = "oxfmt --write --no-error-on-unmatched-pattern ."
 
 [tasks.render]
 description = "Render A Service Without Resolving Secrets Or Deploying"
