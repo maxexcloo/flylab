@@ -356,9 +356,14 @@ def render(repository, homelab, output):
     for probe in probes:
         if probe["url"] in headers:
             probe["headers"] = dict(probe.get("headers", {}), **headers[probe["url"]])
-    with (output / "secrets.env").open("a") as secret_file:
-        for name, reference in sorted(secrets.items()):
-            secret_file.write(f"{name}={{{{ {reference} }}}}\n")
+    secrets_path = output / "secrets.env"
+    secrets_path.write_text(
+        secrets_path.read_text()
+        + "".join(
+            f"{name}={{{{ {reference} }}}}\n"
+            for name, reference in sorted(secrets.items())
+        )
+    )
     infrastructure = infrastructure_endpoints(
         machines, domain, clusters, domains["services"]
     )
