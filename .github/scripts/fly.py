@@ -8,7 +8,7 @@ import time
 import tomllib
 from pathlib import Path
 
-DEPLOYMENT_KEYS = {"certificates", "key", "machine_count", "required_secrets"}
+DEPLOYMENT_KEYS = {"certificates", "machine_count", "required_secrets"}
 SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=.*$")
 SERVICE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
@@ -74,7 +74,6 @@ def fly_json(arguments, app):
 def load_deployments():
     deployments = []
     apps = set()
-    keys = set()
     for path in sorted(Path(".").glob("*/deployment.toml")):
         deployment = tomllib.loads(path.read_text())
         unknown = set(deployment) - DEPLOYMENT_KEYS
@@ -87,8 +86,6 @@ def load_deployments():
         )
         if not SERVICE_PATTERN.fullmatch(deployment["app"]):
             raise ValueError("Invalid Fly app")
-        if not SERVICE_PATTERN.fullmatch(deployment["key"]):
-            raise ValueError("Invalid deployment key")
         if (
             type(deployment["machine_count"]) is not int
             or deployment["machine_count"] < 1
@@ -108,10 +105,9 @@ def load_deployments():
             for host in certificates
         ):
             raise ValueError("Invalid certificates")
-        if deployment["app"] in apps or deployment["key"] in keys:
-            raise ValueError("Duplicate Fly app or deployment key")
+        if deployment["app"] in apps:
+            raise ValueError("Duplicate Fly app")
         apps.add(deployment["app"])
-        keys.add(deployment["key"])
         deployments.append(deployment)
     if not deployments:
         raise ValueError("No deployments configured")
