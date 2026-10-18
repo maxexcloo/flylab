@@ -1,6 +1,5 @@
 [vars]
 python = "uv run --no-project --python python"
-ruff_args = "--extend-select I"
 shell_paths = "*/*.sh"
 
 [tools]
