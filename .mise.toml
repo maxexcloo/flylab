@@ -1,21 +1,23 @@
 [vars]
+python = "uv run --no-project --python python"
 ruff_args = "--extend-select I"
 shell_paths = "*/*.sh"
 
 [tools]
 flyctl = "0.4.117"
 hadolint = "2.15.1"
-# Match the Kubernetes renderer owned by Kubelab.
+# Match the Kubernetes renderer owned by Kubelab; dependency updates skip it.
 kubectl = "1.37.1"
 "pipx:check-jsonschema" = "0.38.2"
 
 # Development
 [tasks.check]
+description = "Run Static & Rendering Checks"
 depends = ["check:render", "check:static"]
 
 [tasks."check:render"]
 description = "Render Every Configured Service Without Resolving Secrets"
-run = 'uv run --no-project --python python .github/scripts/fly.py --render-all'
+run = '{{vars.python}} .github/scripts/fly.py --render-all'
 
 [tasks."check:static"]
 description = "Check Repository Files & Run Tests Without Fetching Inventories"
@@ -34,7 +36,7 @@ hadolint --failure-threshold error */Dockerfile
 """
 
 [tasks.cleanup]
-description = "Remove Rendered Artefacts, Caches, & Bytecode"
+description = "Remove Rendered Artefacts, Caches & Bytecode"
 run = """
 find . -path ./.git -prune -o \
   -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
@@ -43,19 +45,19 @@ find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
 """
 
 [tasks.fmt]
+description = "Format Supported Files"
 depends = ["fmt:oxfmt", "fmt:python"]
 
 [tasks.render]
 description = "Render A Service Without Resolving Secrets Or Deploying"
-run = 'uv run --no-project --python python .github/scripts/fly.py --render "$usage_service"'
+run = '{{vars.python}} .github/scripts/fly.py --render "$usage_service"'
 usage = 'arg "<service>"'
 
 [tasks."test:python"]
 description = "Test Shared Tooling & Service Suites"
-run = "uv run --no-project --python python .github/scripts/test.py"
+run = "{{vars.python}} .github/scripts/test.py"
 
 # Dependencies
-# Keep Kubectl aligned with the renderer owned by Kubelab.
 [tasks."dependencies:mise:check"]
 run = "mise upgrade --bump --dry-run --exclude kubectl --local --no-prune"
 
