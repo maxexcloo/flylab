@@ -46,7 +46,8 @@ jobs:
       - name: Set Up Shared Tools & Tasks
         uses: maxexcloo/dotfiles/.github/actions/mise@main
         with:
-          tools: actionlint hadolint jq kubectl node oxfmt pipx:check-jsonschema python ruff shellcheck updatecli uv yq
+          project-tools: true
+          tools: actionlint jq node oxfmt python ruff shellcheck updatecli uv yq
       - name: Run Checks
         run: mise run check:static
       - name: Check Rendering
@@ -79,7 +80,8 @@ jobs:
       - name: Set Up Shared Tools & Tasks
         uses: maxexcloo/dotfiles/.github/actions/mise@main
         with:
-          tools: 1password-cli flyctl jq kubectl python uv yq
+          project-tools: true
+          tools: 1password-cli jq python uv yq
       - name: Render
         if: matrix.deployment.action == 'deploy'
         env:
