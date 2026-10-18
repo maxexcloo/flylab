@@ -5,8 +5,10 @@ primary_region = "syd"
 dockerfile = "Dockerfile"
 
 [http_service]
+auto_stop_machines = "off"
 force_https = true
 internal_port = 8080
+min_machines_running = 1
 
 [[http_service.checks]]
 grace_period = "90s"
