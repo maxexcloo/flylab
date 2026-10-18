@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 
-from fly import load_deployments
+from fly import SERVICE_PATTERN, load_deployments
 
 
 def main():
@@ -29,7 +29,11 @@ def main():
             for deployment in configured_deployments
             if selection in {deployment["key"], deployment["app"]}
         ]
-        if not deployments and action == "delete":
+        if (
+            not deployments
+            and action == "delete"
+            and SERVICE_PATTERN.fullmatch(selection)
+        ):
             deployments = [{"app": selection, "key": selection}]
         if len(deployments) != 1:
             raise SystemExit("Expected one matching Fly deployment")
