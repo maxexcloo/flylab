@@ -56,7 +56,7 @@ jobs:
       - name: Select Deployments
         if: github.event_name != 'pull_request'
         id: select
-        run: uv run --no-project --python python .github/scripts/select-deployments.py
+        run: mise run deployments:select
 
   reconcile:
     name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.key }}
@@ -93,4 +93,4 @@ jobs:
         env:
           FLY_API_TOKEN: op://Flylab/Fly.io/password
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        run: op run -- uv run --no-project --python python .github/scripts/fly.py
+        run: op run -- mise run deployments:reconcile
