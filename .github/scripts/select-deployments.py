@@ -1,8 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = []
-# ///
-
 import json
 import os
 from pathlib import Path
