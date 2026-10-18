@@ -55,6 +55,14 @@ class DeploymentSelectionTest(unittest.TestCase):
             [{"app": "retired-app", "key": "retired-app", "action": "delete"}],
         )
 
+    def test_deletion_rejects_invalid_app_names(self):
+        for selection in ("--help", "Retired-App", "retired app"):
+            with (
+                self.subTest(selection=selection),
+                self.assertRaisesRegex(SystemExit, "one matching Fly deployment"),
+            ):
+                self.select("delete", selection)
+
     def test_deletion_requires_explicit_selection(self):
         with self.assertRaisesRegex(SystemExit, "required for deletion"):
             self.select("delete", "")
