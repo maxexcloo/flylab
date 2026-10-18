@@ -56,6 +56,15 @@ usage = 'arg "<service>"'
 description = "Test Shared Tooling & Service Suites"
 run = "{{vars.python}} .github/scripts/test.py"
 
+# Deployment
+[tasks."deployments:reconcile"]
+description = "Deploy Or Delete The Selected Fly App (GitHub Actions Only)"
+run = "{{vars.python}} .github/scripts/fly.py"
+
+[tasks."deployments:select"]
+description = "Select Deployments For The Current GitHub Actions Event"
+run = "{{vars.python}} .github/scripts/select-deployments.py"
+
 # Dependencies
 [tasks."dependencies:mise:check"]
 run = "mise upgrade --bump --dry-run --exclude kubectl --local --no-prune"
