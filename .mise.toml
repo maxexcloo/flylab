@@ -1,3 +1,6 @@
+[env]
+FLYLAB_RENDER_DIRECTORY = "{{env.HOME}}/.cache/flylab/render"
+
 [vars]
 python = "uv run --no-project --python python"
 shell_paths = "*/*.sh"
@@ -36,13 +39,8 @@ hadolint --failure-threshold error */Dockerfile
 """
 
 [tasks.cleanup]
-description = "Remove Rendered Artefacts, Caches & Bytecode"
-run = """
-find . -path ./.git -prune -o \
-  -type d \\( -name .render -o -name .ruff_cache -o -name __pycache__ \\) \
-  -prune -exec rm -fr -- {} +
-find . -path ./.git -prune -o -type f -name '*.pyc' -exec rm -f -- {} +
-"""
+description = "Remove Rendered Artefacts"
+run = 'rm -fr -- "$FLYLAB_RENDER_DIRECTORY"'
 
 [tasks.fmt]
 description = "Format Supported Files"

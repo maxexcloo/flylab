@@ -158,6 +158,7 @@ class DeploymentTest(unittest.TestCase):
             (path / ".render/example").mkdir(parents=True)
             (path / ".render/example/fly.toml").touch()
             with (
+                patch.dict(os.environ, {"FLYLAB_RENDER_DIRECTORY": ".render"}),
                 patch.object(FLY, "Path", side_effect=lambda value: path / value),
                 patch.object(FLY, "app_exists", return_value=True),
                 patch.object(FLY, "reconcile_certificates"),
@@ -192,6 +193,7 @@ class RenderingTest(unittest.TestCase):
             (root / "alpha/render.py").touch()
             (root / "alpha/requirements.txt").write_text("example==1.0\n")
             with (
+                patch.dict(os.environ, {"FLYLAB_RENDER_DIRECTORY": ".render"}),
                 patch.object(FLY, "Path", side_effect=lambda value: root / value),
                 patch("sys.argv", ["fly.py", "--render-all"]),
                 patch.object(FLY.subprocess, "run") as run,
