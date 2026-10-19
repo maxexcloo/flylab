@@ -82,9 +82,11 @@ Kubelab consumes the same inventory for Homepage.
 
 ## Monitoring
 
-The default UI sort is `group`: category groups such as `Servers (External)` and
-`Servers (Internal)` appear alongside domain groups and `Providers`, alphabetically. This order
-comes from the group names, not the order of YAML files. The browser can retain a
+The default UI sort is `group`: domain groups appear first, then category groups
+such as `Providers`, `Servers (External)` and `Servers (Internal)`, alphabetically
+within each set. Category groups carry an invisible Hangul filler (U+3164) prefix
+because Gatus collates with `localeCompare`, which ignores zero-width spaces. This
+order comes from the group names, not the order of YAML files. The browser can retain a
 user-selected sort or filter. Renaming groups or endpoints changes Gatus history
 keys; memory-only storage also resets on restart.
 
