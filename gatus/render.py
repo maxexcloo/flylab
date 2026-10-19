@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 import yaml
 
 
-def endpoints(inventory):
+def endpoints(inventory, placements):
     if not isinstance(inventory, list) or not any(
         entry.get("type") == "route" for entry in inventory
     ):
@@ -35,9 +35,13 @@ def endpoints(inventory):
             cluster = entry.get("cluster")
             if not isinstance(cluster, str) or not cluster:
                 raise ValueError("Route is missing its cluster")
-            suffix = f" ({cluster.upper()})"
-            if not name.endswith(suffix):
-                name += suffix
+            location = route_location(entry, cluster, placements)
+        else:
+            location = entry["location"]
+        # Match the location tag Homepage shows on the card.
+        suffix = f" ({location})"
+        if not name.endswith(suffix):
+            name += suffix
         conditions = ["[RESPONSE_TIME] < 5000", "[STATUS] == any(200, 401)"]
         if urlsplit(url).scheme == "https":
             conditions.insert(0, "[CERTIFICATE_EXPIRATION] > 168h")
@@ -96,7 +100,8 @@ def infrastructure_endpoints(inventory, domain, clusters, services_domain):
             probes.append(
                 {
                     "group": "Servers",
-                    "name": f"{network}-{hostname} ({scope})",
+                    "name": f"{network}-{hostname}"
+                    + (" (External)" if scope == "External" else ""),
                     "url": f"icmp://{target}",
                     "alerts": [{"type": "email"}],
                     "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
@@ -135,6 +140,7 @@ def machine_service_inventory(machines, domain):
             entries.append(
                 {
                     "group": service["group"],
+                    "location": f"{network}-{hostname}",
                     "monitor": f"{scheme}://{service_host}{suffix}",
                     "name": service.get("name", f"{name} {service_name}"),
                     "type": "machine",
@@ -173,6 +179,67 @@ def monitoring_credentials(inventory):
             endpoint_headers[header.lower()] = value
             secrets[name] = reference
     return headers, secrets
+
+
+def node_constraints(value, network_label):
+    """Yield required node network and hostname values from pod scheduling."""
+    if isinstance(value, list):
+        for item in value:
+            yield from node_constraints(item, network_label)
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if key == "nodeSelector" and isinstance(item, dict):
+                for label in (network_label, "kubernetes.io/hostname"):
+                    if isinstance(item.get(label), str):
+                        yield label, {item[label]}
+            elif key == "nodeAffinity" and isinstance(item, dict):
+                # Preferred affinity cannot place a workload without the cluster API.
+                required = item.get(
+                    "requiredDuringSchedulingIgnoredDuringExecution", {}
+                )
+                for term in required.get("nodeSelectorTerms", []):
+                    for expression in term.get("matchExpressions", []):
+                        if expression.get("operator") == "In" and expression.get(
+                            "key"
+                        ) in {network_label, "kubernetes.io/hostname"}:
+                            yield expression["key"], set(expression["values"])
+            elif key not in {"podAffinity", "podAntiAffinity"}:
+                yield from node_constraints(item, network_label)
+
+
+def placements(manifests, clusters, services_domain):
+    """Map workloads to the nodes their required scheduling allows."""
+    network_label = f"node.{services_domain}/network"
+    result = {}
+    for cluster_name, cluster in clusters.items():
+        nodes = set(cluster["nodes"])
+        # Homelab labels the public node external and every other node internal.
+        networks = {
+            "external": {cluster.get("public_node")} & nodes,
+            "internal": nodes - {cluster.get("public_node")},
+        }
+        for path in (
+            manifests / f"apps/overlays/{cluster_name}.yaml",
+            manifests / f"clusters/{cluster_name}/platform.yaml",
+        ):
+            for document in yaml.safe_load_all(path.read_text()):
+                if not document or document.get("kind") not in {
+                    "DaemonSet",
+                    "Deployment",
+                    "HelmRelease",
+                    "StatefulSet",
+                }:
+                    continue
+                allowed = set(nodes)
+                for label, values in node_constraints(document, network_label):
+                    if label == network_label:
+                        values = set().union(*(networks.get(v, set()) for v in values))
+                    allowed &= values
+                metadata = document["metadata"]
+                result[(cluster_name, metadata.get("namespace"), metadata["name"])] = (
+                    allowed
+                )
+    return result
 
 
 def provider_endpoints(providers, domain):
@@ -214,12 +281,24 @@ def provider_endpoints(providers, domain):
     return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 
-def render(repository, homelab, output):
+def render(repository, homelab, output, manifests):
+    environment = dict(os.environ, HOMELAB_DIRECTORY=str(homelab))
+    subprocess.run(
+        ["bash", "scripts/render_manifests.sh", str(manifests)],
+        cwd=repository,
+        env=environment,
+        check=True,
+    )
     inventory = json.loads(
         subprocess.check_output(
-            ["bash", "scripts/render_service_inventory.sh"],
+            [
+                "bash",
+                "scripts/render_service_inventory.sh",
+                "--manifest-directory",
+                str(manifests),
+            ],
             cwd=repository,
-            env=dict(os.environ, HOMELAB_DIRECTORY=str(homelab)),
+            env=environment,
             text=True,
         )
     )
@@ -236,13 +315,14 @@ def render(repository, homelab, output):
     inventory.extend(
         {
             "group": "Operations",
+            "location": "fly",
             "monitor": f"https://{hostname}",
             "name": "Gatus",
             "type": "fly",
         }
         for hostname in deployment["certificates"]
     )
-    probes = endpoints(inventory)
+    probes = endpoints(inventory, placements(manifests, clusters, domains["services"]))
     for probe in probes:
         if probe["url"] in headers:
             probe["headers"] = headers[probe["url"]]
@@ -272,6 +352,25 @@ def render(repository, homelab, output):
         f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure "
         f"and {len(providers)} provider probes"
     )
+
+
+def route_location(entry, cluster, placements):
+    """Derive Homepage's cluster/node tag from the route's workload placement."""
+    _, namespace, name = entry["source"].split("/")[:3]
+    workloads = {
+        key[2]: allowed
+        for key, allowed in placements.items()
+        if key[:2] == (cluster, namespace)
+    }
+    # Extra routes such as `<workload>-public` share their workload's placement.
+    matches = [workload for workload in workloads if name.startswith(workload)]
+    if matches:
+        nodes = workloads[max(matches, key=len)]
+    else:
+        nodes = set().union(*workloads.values())
+    if len(nodes) != 1:
+        return cluster
+    return f"{cluster}/{next(iter(nodes))}"
 
 
 @contextmanager
@@ -338,7 +437,8 @@ def main():
     with ExitStack() as stack:
         homelab = stack.enter_context(source_repository("homelab"))
         kubelab = stack.enter_context(source_repository("kubelab"))
-        render(kubelab, homelab, args.output)
+        manifests = Path(stack.enter_context(tempfile.TemporaryDirectory()))
+        render(kubelab, homelab, args.output, manifests)
 
 
 if __name__ == "__main__":

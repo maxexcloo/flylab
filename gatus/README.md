@@ -58,8 +58,12 @@ scheme, port and optional display name live beside the endpoint. Management
 consoles use `services.management`. Gatus's own hostname comes from `deployment.toml`.
 No Homepage configuration, running cluster API or OpenTofu state is read.
 Services use their Homepage group, so Gatus and Homepage share categories; Gatus
-itself appears under `Operations`. Route names retain cluster suffixes. Invalid
-URLs, conflicting duplicates and an empty route inventory stop deployment.
+itself appears under `Operations`. Names end with Homepage's location tag:
+`<cluster>/<node>` for routes, `<network>-<hostname>` for machine services and
+`fly` for Gatus. Route placement comes from required workload node selectors and
+affinity, using Homelab's `external` public node and `internal` other nodes;
+routes that only prefer a node keep the bare cluster tag. Invalid URLs, conflicting
+duplicates and an empty route inventory stop deployment.
 
 Homelab's `data/machines.yaml` supplies machine identities, network locations,
 types, display groups, monitoring eligibility, Tailscale eligibility and declared public addresses. `data/domains.yaml`
@@ -72,8 +76,8 @@ DNS record, derived from the cluster’s public node selection. No OpenTofu stat
 provider credentials or resolved device addresses are read.
 Untyped personal devices and Tailscale-disabled private devices are excluded;
 machines with `monitoring: false` are also excluded. Machine checks share the
-`Servers` group, matching Homepage's tab, and name their `Internal` or `External`
-scope.
+`Servers` group, matching Homepage's tab, and use Homepage's `network-hostname`
+group names; external checks add an `(External)` suffix.
 
 Homelab's `data/providers.yaml` owns provider bookmarks, widget templates and
 native Gatus probe settings in top-level `alerts`, `conditions` and `dns` fields.
@@ -111,5 +115,4 @@ HOMELAB_DIRECTORY=../homelab KUBELAB_DIRECTORY=../kubelab mise run render gatus
 
 Local checkout rendering includes uncommitted changes.
 
-Display names use uppercase cluster suffixes for apps and lowercase
-`network-hostname` names for machines. Probe targets retain their native DNS names.
+Probe targets retain their native DNS names.
