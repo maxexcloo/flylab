@@ -8,7 +8,7 @@ import time
 import tomllib
 from pathlib import Path
 
-DEPLOYMENT_KEYS = {"certificates", "machine_count", "required_secrets"}
+DEPLOYMENT_KEYS = {"certificates", "machine_count"}
 SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=.*$")
 SERVICE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
@@ -20,9 +20,7 @@ def app_exists(app):
             text=True,
         )
     )
-    return any(
-        app == (candidate.get("Name") or candidate.get("name")) for candidate in apps
-    )
+    return any(candidate["Name"] == app for candidate in apps)
 
 
 def delete(app):
@@ -44,7 +42,7 @@ def deploy(deployment):
         subprocess.run(["flyctl", "apps", "create", app], check=True)
 
     reconcile_certificates(app, deployment["certificates"])
-    reconcile_secrets(app, deployment_path, deployment.get("required_secrets", []))
+    reconcile_secrets(app, deployment_path)
     subprocess.run(
         ["flyctl", "deploy", "--app", app, "--config", "fly.toml"],
         check=True,
@@ -95,12 +93,6 @@ def load_deployments():
             raise ValueError("Expected a positive machine count")
         if not config.get("http_service", {}).get("checks"):
             raise ValueError("Configure native Fly health checks in fly.toml")
-        required = deployment.get("required_secrets", [])
-        if not isinstance(required, list) or any(
-            not isinstance(name, str) or not re.fullmatch(r"[A-Z0-9_]+", name)
-            for name in required
-        ):
-            raise ValueError("Invalid required secret names")
         certificates = deployment["certificates"]
         if not isinstance(certificates, list) or any(
             not isinstance(host, str) or not host or host.startswith("-")
@@ -126,9 +118,7 @@ def python_command(service_path):
 
 def reconcile_certificates(app, desired):
     current = {
-        hostname
-        for certificate in fly_json(["certs", "list"], app)
-        if (hostname := certificate.get("Hostname") or certificate.get("hostname"))
+        certificate["hostname"] for certificate in fly_json(["certs", "list"], app)
     }
     desired = set(desired)
 
@@ -144,7 +134,7 @@ def reconcile_certificates(app, desired):
         )
 
 
-def reconcile_secrets(app, deployment_path, required):
+def reconcile_secrets(app, deployment_path):
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Resolve 1Password references only in GitHub Actions")
     env_path = deployment_path / "secrets.env"
@@ -172,17 +162,8 @@ def reconcile_secrets(app, deployment_path, required):
         else ""
     )
 
-    current = {
-        name
-        for secret in fly_json(["secrets", "list"], app)
-        if (name := secret.get("Name") or secret.get("name"))
-    }
-    missing = set(required) - current - desired
-    if missing:
-        raise ValueError(
-            f"Required Fly secrets are missing: {', '.join(sorted(missing))}"
-        )
-    stale = sorted(current - desired - set(required))
+    current = {secret["name"] for secret in fly_json(["secrets", "list"], app)}
+    stale = sorted(current - desired)
     if stale:
         subprocess.run(
             ["flyctl", "secrets", "unset", *stale, "--app", app, "--stage"],
@@ -226,15 +207,14 @@ def render(service):
 
 def verify(app, machine_count):
     # Scaling happens after deploy's native health wait.
-    for attempt in range(60):
+    for _ in range(60):
         machines = fly_json(["checks", "list"], app)
         if len(machines) == machine_count and all(
             checks and all(check["status"] == "passing" for check in checks)
             for checks in machines.values()
         ):
             return
-        if attempt < 59:
-            time.sleep(5)
+        time.sleep(5)
     raise RuntimeError(f"Native Fly health checks did not pass on every {app} machine")
 
 

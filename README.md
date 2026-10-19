@@ -12,7 +12,6 @@ service-specific 1Password references. Give the service account read-only access
 to the Flylab vault and the required application vaults. The Fly token is used
 only by deployment tooling; it is never passed into applications. Keep the
 service-account recovery copy in `Homelab/Connect Token: fly`.
-Services can also declare required native Fly secrets that deployment preserves.
 
 ## Deployment
 
@@ -31,13 +30,13 @@ Services can also declare required native Fly secrets that deployment preserves.
    workflow artefacts.
 4. Deployment reconciles certificates and secrets, deploys and reconciles machine
    count. It waits for native Fly health checks to pass on every machine, including
-   machines added after deployment. Secrets absent from
-   both the generated references and required native secrets are staged for removal.
+   machines added after deployment. Secrets absent from `secrets.env` are staged
+   for removal.
 
 Fly settings live in `<service>/fly.toml`; `deployment.toml` declares the
-certificates, machine count and required native Fly secret names. Adding a
-service does not require changing shared workflow logic. Document its inputs,
-credentials and operating requirements in `<service>/README.md`.
+certificates and machine count. Adding a service does not require changing shared
+workflow logic. Document its inputs, credentials and operating requirements in
+`<service>/README.md`.
 
 ## Development
 

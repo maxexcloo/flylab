@@ -143,7 +143,7 @@ class DeploymentTest(unittest.TestCase):
             self.assertRaisesRegex(RuntimeError, "every example machine"),
         ):
             FLY.verify("example", 1)
-        self.assertEqual(sleep.call_count, 59)
+        self.assertEqual(sleep.call_count, 60)
 
     def test_scaling_precedes_health_verification(self):
         deployment = {
@@ -207,18 +207,7 @@ class RenderingTest(unittest.TestCase):
 
 
 class SecretReconciliationTest(unittest.TestCase):
-    def test_missing_native_secret_stops_before_mutations(self):
-        with tempfile.TemporaryDirectory() as directory:
-            with (
-                patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}),
-                patch.object(FLY, "fly_json", return_value=[]),
-                patch.object(FLY.subprocess, "run") as run,
-                self.assertRaisesRegex(ValueError, "MAIL_PASSWORD"),
-            ):
-                FLY.reconcile_secrets("example", Path(directory), ["MAIL_PASSWORD"])
-            run.assert_not_called()
-
-    def test_native_secrets_are_preserved_and_stale_generated_secrets_removed(self):
+    def test_stale_secrets_are_removed_before_import(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)
             (path / "secrets.env").write_text("NEW={{ op://vault/item/field }}\n")
@@ -227,7 +216,7 @@ class SecretReconciliationTest(unittest.TestCase):
                 patch.object(
                     FLY,
                     "fly_json",
-                    return_value=[{"Name": "MAIL_PASSWORD"}, {"Name": "OLD"}],
+                    return_value=[{"name": "NEW"}, {"name": "OLD"}],
                 ),
                 patch.object(
                     FLY.subprocess,
@@ -235,7 +224,7 @@ class SecretReconciliationTest(unittest.TestCase):
                     return_value=Mock(stdout="NEW=test-fixture\n"),
                 ) as run,
             ):
-                FLY.reconcile_secrets("example", path, ["MAIL_PASSWORD"])
+                FLY.reconcile_secrets("example", path)
             self.assertEqual(
                 run.call_args_list[1].args[0],
                 ["flyctl", "secrets", "unset", "OLD", "--app", "example", "--stage"],
@@ -250,7 +239,7 @@ class SecretReconciliationTest(unittest.TestCase):
             patch.object(FLY.subprocess, "run") as run,
             self.assertRaises(RuntimeError),
         ):
-            FLY.reconcile_secrets("example", Path("unused"), [])
+            FLY.reconcile_secrets("example", Path("unused"))
         run.assert_not_called()
 
 

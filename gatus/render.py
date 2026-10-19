@@ -360,7 +360,7 @@ def render(repository, homelab, output):
     probes = endpoints(inventory, zones)
     for probe in probes:
         if probe["url"] in headers:
-            probe["headers"] = dict(probe.get("headers", {}), **headers[probe["url"]])
+            probe["headers"] = headers[probe["url"]]
     secrets_path = output / "secrets.env"
     secrets_path.write_text(
         secrets_path.read_text()
