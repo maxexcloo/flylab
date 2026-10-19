@@ -112,8 +112,16 @@ class InfrastructureTest(unittest.TestCase):
         self.assertEqual(
             [(p["group"], p["name"], p["url"]) for p in probes],
             [
-                ("Servers (External)", "new-worker", "icmp://public.new.example.dev"),
-                ("Servers (Internal)", "new-worker", "icmp://worker.new.example.net"),
+                (
+                    RENDER.CATEGORY_GROUP_PREFIX + "Servers (External)",
+                    "new-worker",
+                    "icmp://public.new.example.dev",
+                ),
+                (
+                    RENDER.CATEGORY_GROUP_PREFIX + "Servers (Internal)",
+                    "new-worker",
+                    "icmp://worker.new.example.net",
+                ),
             ],
         )
 
@@ -147,8 +155,12 @@ class InfrastructureTest(unittest.TestCase):
                 "icmp://backup.mbk.example.net",
             ],
         )
-        self.assertEqual(probes[1]["group"], "Servers (External)")
-        self.assertEqual(probes[0]["group"], "Custom (Internal)")
+        self.assertEqual(
+            probes[1]["group"], RENDER.CATEGORY_GROUP_PREFIX + "Servers (External)"
+        )
+        self.assertEqual(
+            probes[0]["group"], RENDER.CATEGORY_GROUP_PREFIX + "Custom (Internal)"
+        )
         self.assertEqual(probes[0]["name"], "mbk-renamed")
         self.assertEqual(
             probes[1]["conditions"], ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"]

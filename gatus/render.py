@@ -13,6 +13,11 @@ from urllib.parse import urlsplit
 
 import yaml
 
+# Gatus sorts groups with localeCompare, which ignores zero-width spaces. Browsers
+# hide this Hangul filler, but it collates after Latin letters, so category groups
+# follow domain groups.
+CATEGORY_GROUP_PREFIX = "\u3164"
+
 
 def domain_group(url, zones):
     hostname = urlsplit(url).hostname
@@ -106,7 +111,7 @@ def infrastructure_endpoints(inventory, domain, clusters, services_domain):
         for scope, target in targets.items():
             probes.append(
                 {
-                    "group": f"{groups[machine_type]} ({scope})",
+                    "group": f"{CATEGORY_GROUP_PREFIX}{groups[machine_type]} ({scope})",
                     "name": f"{network}-{hostname}",
                     "url": f"icmp://{target}",
                     "alerts": [{"type": "email"}],
@@ -278,7 +283,7 @@ def provider_endpoints(providers, domain):
             validate_url(provider["url"])
             probes.append(
                 {
-                    "group": "Providers",
+                    "group": f"{CATEGORY_GROUP_PREFIX}Providers",
                     "name": name,
                     "url": provider["url"],
                     **{
@@ -292,7 +297,7 @@ def provider_endpoints(providers, domain):
             resolver = provider["dns"]
             probes.append(
                 {
-                    "group": "Providers",
+                    "group": f"{CATEGORY_GROUP_PREFIX}Providers",
                     "name": resolver.get("name", f"{name} DNS"),
                     "url": str(ipaddress.ip_address(resolver["url"])),
                     "dns": {
