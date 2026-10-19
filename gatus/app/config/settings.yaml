@@ -1,6 +1,6 @@
 alerting:
   email:
-    from: gatus-fly@excloo.dev
+    from: excloo-gatus@excloo.dev
     host: smtp.resend.com
     password: ${RESEND_API_KEY}
     port: 465
