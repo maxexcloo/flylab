@@ -17,7 +17,7 @@ Services can also declare required native Fly secrets that deployment preserves.
 ## Deployment
 
 1. Pushes to `main`, except Markdown-only changes, deploy every directory
-   containing `deployment.toml`. Manual runs can select a deployment key or Fly
+   containing `deployment.toml`. Manual runs can select a service directory or Fly
    app name, or explicitly delete an app.
    Pull requests render every configured service. Deployment runs check repository
    files and tests, then render each selected service once using the requested
@@ -33,8 +33,8 @@ Services can also declare required native Fly secrets that deployment preserves.
    machines added after deployment. Secrets absent from
    both the generated references and required native secrets are staged for removal.
 
-Fly settings live in `<service>/fly.toml`; `deployment.toml` declares the selection
-key, certificates, machine count and required native Fly secret names. Adding a
+Fly settings live in `<service>/fly.toml`; `deployment.toml` declares the
+certificates, machine count and required native Fly secret names. Adding a
 service does not require changing shared workflow logic. Document its inputs,
 credentials and operating requirements in `<service>/README.md`.
 

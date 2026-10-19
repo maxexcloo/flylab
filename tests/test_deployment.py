@@ -22,7 +22,7 @@ class DeploymentSelectionTest(unittest.TestCase):
         self.selection = importlib.util.module_from_spec(spec)
         with patch.dict("sys.modules", {"fly": FLY}):
             spec.loader.exec_module(self.selection)
-        self.deployments = [{"app": "example-app", "key": "example-key"}]
+        self.deployments = [{"app": "example-app", "directory": "example"}]
 
     def select(self, action, selection):
         with tempfile.TemporaryDirectory() as directory:
@@ -44,7 +44,7 @@ class DeploymentSelectionTest(unittest.TestCase):
             return json.loads(output.read_text().removeprefix("deployments="))
 
     def test_ambiguous_selection_fails_for_both_actions(self):
-        self.deployments.append({"app": "other-app", "key": "example-app"})
+        self.deployments.append({"app": "other-app", "directory": "example-app"})
         for action in ("delete", "deploy"):
             with self.subTest(action=action), self.assertRaises(SystemExit):
                 self.select(action, "example-app")
@@ -52,7 +52,7 @@ class DeploymentSelectionTest(unittest.TestCase):
     def test_deletion_accepts_retired_app_names(self):
         self.assertEqual(
             self.select("delete", "retired-app"),
-            [{"app": "retired-app", "key": "retired-app", "action": "delete"}],
+            [{"app": "retired-app", "action": "delete"}],
         )
 
     def test_deletion_rejects_invalid_app_names(self):
@@ -67,9 +67,9 @@ class DeploymentSelectionTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "required for deletion"):
             self.select("delete", "")
 
-    def test_keys_and_app_names_resolve_consistently(self):
+    def test_directories_and_app_names_resolve_consistently(self):
         for action in ("delete", "deploy"):
-            for selection in ("example-app", "example-key"):
+            for selection in ("example-app", "example"):
                 with self.subTest(action=action, selection=selection):
                     self.assertEqual(
                         self.select(action, selection),
@@ -88,7 +88,7 @@ class DeploymentTest(unittest.TestCase):
             service = root / "example"
             service.mkdir()
             (service / "deployment.toml").write_text(
-                'certificates = []\nkey = "example"\nmachine_count = 1\nregion = "syd"\n'
+                'certificates = []\nmachine_count = 1\nregion = "syd"\n'
             )
             with (
                 patch.object(FLY, "Path", side_effect=lambda value: root / value),
@@ -102,7 +102,7 @@ class DeploymentTest(unittest.TestCase):
             service = root / "example"
             service.mkdir()
             (service / "deployment.toml").write_text(
-                'certificates = []\nkey = "example"\nmachine_count = 1\n'
+                "certificates = []\nmachine_count = 1\n"
             )
             config = service / "fly.toml"
             with patch.object(FLY, "Path", side_effect=lambda value: root / value):
@@ -184,7 +184,7 @@ class RenderingTest(unittest.TestCase):
                 service = root / name
                 service.mkdir()
                 (service / "deployment.toml").write_text(
-                    f'certificates = []\nkey = "{name}"\nmachine_count = 1\n'
+                    "certificates = []\nmachine_count = 1\n"
                 )
                 (service / "fly.toml").write_text(
                     f'app = "{name}"\n[[http_service.checks]]\npath = "/health"\n'

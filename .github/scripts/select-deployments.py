@@ -22,14 +22,14 @@ def main():
         deployments = [
             deployment
             for deployment in configured_deployments
-            if selection in {deployment["key"], deployment["app"]}
+            if selection in {deployment["app"], deployment["directory"]}
         ]
         if (
             not deployments
             and action == "delete"
             and SERVICE_PATTERN.fullmatch(selection)
         ):
-            deployments = [{"app": selection, "key": selection}]
+            deployments = [{"app": selection}]
         if len(deployments) != 1:
             raise SystemExit("Expected one matching Fly deployment")
     else:
