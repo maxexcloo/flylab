@@ -176,10 +176,9 @@ def monitoring_credentials(inventory):
     secrets = {}
     for entry in inventory:
         for header, reference in entry["headers"].items():
-            if not re.fullmatch(r"op://[a-zA-Z0-9_./ -]+", reference):
-                raise ValueError(
-                    "Unsupported characters in monitoring secret reference; use item IDs"
-                )
+            # Deployment replaces titles that op inject cannot read with IDs.
+            if not re.fullmatch(r"op://[^/{}\n]+/[^/{}\n]+/[^/{}\n]+", reference):
+                raise ValueError(f"Invalid monitoring secret reference: {reference}")
             name = (
                 "GATUS_HEADER_"
                 + hashlib.sha256(reference.encode()).hexdigest()[:16].upper()
