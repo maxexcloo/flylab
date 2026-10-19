@@ -1,0 +1,12 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["github>maxexcloo/dotfiles//renovate/default.json5"],
+  packageRules: [
+    {
+      description: "kubectl matches the Kubernetes renderer owned by Kubelab",
+      enabled: false,
+      matchManagers: ["mise"],
+      matchDepNames: ["kubectl"],
+    },
+  ],
+}

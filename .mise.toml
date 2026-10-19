@@ -3,7 +3,6 @@ FLYLAB_RENDER_DIRECTORY = "{{ env.TMPDIR | default(value='/tmp') | trim_end(pat=
 
 [vars]
 python = "uv run --no-project --python python"
-shell_paths = "*/*.sh"
 
 [tools]
 flyctl = "latest"
