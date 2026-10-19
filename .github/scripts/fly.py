@@ -34,7 +34,9 @@ def delete(app):
 
 def deploy(deployment):
     app = deployment["app"]
-    deployment_path = Path(".render") / deployment["directory"]
+    deployment_path = (
+        Path(os.environ["FLYLAB_RENDER_DIRECTORY"]) / deployment["directory"]
+    )
     if not (deployment_path / "fly.toml").is_file():
         raise ValueError("Render the deployment before deploying")
 
@@ -204,7 +206,7 @@ def render(service):
     if not service_path.is_dir():
         raise FileNotFoundError(f"Service not found: {service}")
 
-    render_path = Path(".render") / service
+    render_path = Path(os.environ["FLYLAB_RENDER_DIRECTORY"]) / service
     if render_path.exists():
         shutil.rmtree(render_path)
     shutil.copytree(
