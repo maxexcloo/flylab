@@ -9,6 +9,8 @@ import tomllib
 from pathlib import Path
 
 DEPLOYMENT_KEYS = {"certificates", "machine_count"}
+REFERENCE_NAME_PATTERN = re.compile(r"[A-Za-z0-9 ._-]+")
+REFERENCE_PATTERN = re.compile(r"\{\{\s*op://([^/{}]+)/([^/{}]+)/([^/{}]+?)\s*\}\}")
 SECRET_PATTERN = re.compile(r"^([A-Z0-9_]+)=.*$")
 SERVICE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
@@ -108,6 +110,38 @@ def load_deployments():
     return deployments
 
 
+def op_reference_ids(template):
+    """Replace vault and item titles that secret references cannot express with IDs."""
+    vaults = {}
+
+    def replace(match):
+        vault, item, field = match.groups()
+        if not REFERENCE_NAME_PATTERN.fullmatch(vault):
+            if vault not in vaults:
+                vaults[vault] = op_json(["vault", "get", vault])["id"]
+            vault = vaults[vault]
+        if not REFERENCE_NAME_PATTERN.fullmatch(item):
+            items = [
+                candidate["id"]
+                for candidate in op_json(["item", "list", "--vault", vault])
+                if candidate["title"] == item
+            ]
+            if len(items) != 1:
+                raise ValueError(f"Expected one 1Password item titled {item}")
+            item = items[0]
+        if not REFERENCE_NAME_PATTERN.fullmatch(field):
+            raise ValueError(f"Unsupported characters in 1Password field: {field}")
+        return f"{{{{ op://{vault}/{item}/{field} }}}}"
+
+    return REFERENCE_PATTERN.sub(replace, template)
+
+
+def op_json(arguments):
+    return json.loads(
+        subprocess.check_output(["op", *arguments, "--format", "json"], text=True)
+    )
+
+
 def python_command(service_path):
     command = ["uv", "run", "--no-project", "--python", "python"]
     requirements = service_path / "requirements.txt"
@@ -153,8 +187,9 @@ def reconcile_secrets(app, deployment_path):
 
     injected = (
         subprocess.run(
-            ["op", "inject", "--in-file", env_path],
+            ["op", "inject"],
             check=True,
+            input=op_reference_ids("\n".join(lines) + "\n"),
             stdout=subprocess.PIPE,
             text=True,
         ).stdout
