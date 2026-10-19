@@ -17,7 +17,7 @@ on:
           - deploy
           - delete
       deployment:
-        description: Deployment Key Or App Name
+        description: Service Directory Or App Name
         required: false
         type: string
       homelab_revision:
@@ -59,7 +59,7 @@ jobs:
         run: mise run deployments:select
 
   reconcile:
-    name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.key }}
+    name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.app }}
     if: github.event_name != 'pull_request' && needs.prepare.outputs.deployments != '[]'
     needs: prepare
     runs-on: ubuntu-latest
