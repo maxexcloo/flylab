@@ -13,23 +13,8 @@ from urllib.parse import urlsplit
 
 import yaml
 
-# Gatus sorts groups with localeCompare, which ignores zero-width spaces. Browsers
-# hide this Hangul filler, but it collates after Latin letters, so category groups
-# follow domain groups.
-CATEGORY_GROUP_PREFIX = "\u3164"
 
-
-def domain_group(url, zones):
-    hostname = urlsplit(url).hostname
-    matches = [
-        zone for zone in zones if hostname == zone or hostname.endswith("." + zone)
-    ]
-    if not matches:
-        raise ValueError(f"Monitoring URL has no Homelab DNS zone: {url}")
-    return max(matches, key=len)
-
-
-def endpoints(inventory, zones):
+def endpoints(inventory):
     if not isinstance(inventory, list) or not any(
         entry.get("type") == "route" for entry in inventory
     ):
@@ -39,12 +24,12 @@ def endpoints(inventory, zones):
     for entry in inventory:
         if entry.get("type") not in {"machine", "route", "fly"}:
             raise ValueError("Unsupported inventory entry")
-        for field in ("monitor", "name"):
+        for field in ("group", "monitor", "name"):
             if not isinstance(entry.get(field), str) or not entry[field].strip():
                 raise ValueError(f"Missing inventory field: {field}")
         url = entry["monitor"]
         validate_url(url)
-        group = domain_group(url, zones)
+        group = entry["group"]
         name = entry["name"]
         if entry["type"] == "route":
             cluster = entry.get("cluster")
@@ -84,7 +69,6 @@ def endpoints(inventory, zones):
 
 
 def infrastructure_endpoints(inventory, domain, clusters, services_domain):
-    groups = inventory["types"]
     public_hosts = {
         cluster.get(
             "public_node", cluster["api_node"]
@@ -98,7 +82,7 @@ def infrastructure_endpoints(inventory, domain, clusters, services_domain):
         machine_type = machine.get("type")
         if machine_type is None:
             continue
-        if machine_type not in groups:
+        if machine_type not in inventory["types"]:
             raise ValueError(f"Unsupported machine type: {machine_type}")
         targets = {}
         if machine.get("tailscale", {}).get("enabled", True):
@@ -111,8 +95,8 @@ def infrastructure_endpoints(inventory, domain, clusters, services_domain):
         for scope, target in targets.items():
             probes.append(
                 {
-                    "group": f"{CATEGORY_GROUP_PREFIX}{groups[machine_type]} ({scope})",
-                    "name": f"{network}-{hostname}",
+                    "group": "Servers",
+                    "name": f"{network}-{hostname} ({scope})",
                     "url": f"icmp://{target}",
                     "alerts": [{"type": "email"}],
                     "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
@@ -120,9 +104,7 @@ def infrastructure_endpoints(inventory, domain, clusters, services_domain):
             )
     if not probes:
         raise ValueError("Expected a non-empty Homelab infrastructure inventory")
-    return sorted(
-        probes, key=lambda probe: (probe["group"].casefold(), probe["name"].casefold())
-    )
+    return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 
 def machine_service_inventory(machines, domain):
@@ -152,6 +134,7 @@ def machine_service_inventory(machines, domain):
             )
             entries.append(
                 {
+                    "group": service["group"],
                     "monitor": f"{scheme}://{service_host}{suffix}",
                     "name": service.get("name", f"{name} {service_name}"),
                     "type": "machine",
@@ -200,7 +183,7 @@ def provider_endpoints(providers, domain):
             validate_url(provider["url"])
             probes.append(
                 {
-                    "group": f"{CATEGORY_GROUP_PREFIX}Providers",
+                    "group": "Providers",
                     "name": name,
                     "url": provider["url"],
                     **{
@@ -214,7 +197,7 @@ def provider_endpoints(providers, domain):
             resolver = provider["dns"]
             probes.append(
                 {
-                    "group": f"{CATEGORY_GROUP_PREFIX}Providers",
+                    "group": "Providers",
                     "name": resolver.get("name", f"{name} DNS"),
                     "url": str(ipaddress.ip_address(resolver["url"])),
                     "dns": {
@@ -241,10 +224,6 @@ def render(repository, homelab, output):
         )
     )
     headers, secrets = monitoring_credentials(inventory)
-    zones = [
-        yaml.safe_load(path.read_text())["name"]
-        for path in sorted((homelab / "data/dns").glob("*.yaml"))
-    ]
     machines = yaml.safe_load((homelab / "data/machines.yaml").read_text())
     domains = yaml.safe_load((homelab / "data/domains.yaml").read_text())["domains"]
     domain = domains["infrastructure"]
@@ -256,13 +235,14 @@ def render(repository, homelab, output):
     deployment = tomllib.loads((Path(__file__).parent / "deployment.toml").read_text())
     inventory.extend(
         {
+            "group": "Operations",
             "monitor": f"https://{hostname}",
             "name": "Gatus",
             "type": "fly",
         }
         for hostname in deployment["certificates"]
     )
-    probes = endpoints(inventory, zones)
+    probes = endpoints(inventory)
     for probe in probes:
         if probe["url"] in headers:
             probe["headers"] = headers[probe["url"]]
