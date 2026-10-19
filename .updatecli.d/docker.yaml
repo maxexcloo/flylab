@@ -4,6 +4,7 @@ pipelineid: update-docker
 autodiscovery:
   crawlers:
     dockerfile:
+      digest: false
       ignore:
         - path: .render/*
 labels:
