@@ -19,12 +19,12 @@ service-account recovery copy in `Homelab/Connect Token: fly`.
    containing `deployment.toml`. Manual runs can select a service directory or Fly
    app name, or explicitly delete an app.
    Pull requests render every configured service. Deployment runs check repository
-   files and tests, then render each selected service once using the requested
+   files, then render each selected service once using the requested
    inventory revisions before resolving credentials. Deletion skips inventory rendering.
 2. Each service is copied into `$FLYLAB_RENDER_DIRECTORY` (set in `.mise.toml`).
    An optional service-local `render.py` prepares generated application files
    without deployment credentials. Its optional `requirements.txt` supplies renderer
-   dependencies and is also used by its service tests.
+   dependencies.
 3. GitHub Actions resolves `secrets.env` references through 1Password. Values pass
    directly to Fly over standard input; they are never written to files or
    workflow artefacts.
@@ -49,9 +49,7 @@ mise run check
 mise run render <service>
 ```
 
-Checks discover shared tests in `tests/` and each configured service’s `tests/`,
-using that service’s optional `requirements.txt`. Each service declares native
-HTTP service health checks in `fly.toml`.
+Each service declares native HTTP service health checks in `fly.toml`.
 
 Rendering resolves no secrets and makes no deployment changes. Generated output
 goes to `$FLYLAB_RENDER_DIRECTORY/<service>` in the system temporary directory;

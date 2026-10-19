@@ -16,6 +16,6 @@
 
 ## Verification
 
-- `mise run check:static` checks repository files and runs tests offline.
+- `mise run check:static` checks repository files offline.
 - `mise run check:render` fetches public Homelab and Kubelab `main` and renders every service.
 - `mise run check` runs both.

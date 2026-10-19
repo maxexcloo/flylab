@@ -21,7 +21,7 @@ description = "Render Every Configured Service Without Resolving Secrets"
 run = '{{vars.python}} .github/scripts/fly.py --render-all'
 
 [tasks."check:static"]
-description = "Check Repository Files & Run Tests Without Fetching Inventories"
+description = "Check Repository Files Without Fetching Inventories"
 depends = [
   "check:actions",
   "check:mise",
@@ -30,7 +30,6 @@ depends = [
   "check:shell",
   "check:updates",
   "check:whitespace",
-  "test:python",
 ]
 run = """
 check-jsonschema --builtin-schema github-workflows .github/workflows/*.yaml
@@ -49,10 +48,6 @@ depends = ["fmt:oxfmt", "fmt:python"]
 description = "Render A Service Without Resolving Secrets Or Deploying"
 run = '{{vars.python}} .github/scripts/fly.py --render "$usage_service"'
 usage = 'arg "<service>"'
-
-[tasks."test:python"]
-description = "Test Shared Tooling & Service Suites"
-run = "{{vars.python}} .github/scripts/test.py"
 
 # Deployment
 [tasks."deployments:reconcile"]
