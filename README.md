@@ -55,9 +55,9 @@ using that service’s optional `requirements.txt`. Each service declares native
 HTTP service health checks in `fly.toml`.
 
 Rendering resolves no secrets and makes no deployment changes. Generated output
-goes to `~/.cache/flylab/render/<service>`, outside the repository; `mise run cleanup`
-removes it. Use `mise run fmt` to format supported files. See each service's README
-for its rendering inputs.
+goes to `$FLYLAB_RENDER_DIRECTORY/<service>` in the system temporary directory;
+`mise run cleanup` removes it. Use `mise run fmt` to format supported files. See
+each service's README for its rendering inputs.
 
 ## Licence
 
