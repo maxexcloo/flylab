@@ -12,7 +12,7 @@
 
 ## Style
 
-- Keep Python helpers and constants sorted; keep `main()` and its execution guard last.
+- Keep Python `main()` and its execution guard last.
 
 ## Verification
 
