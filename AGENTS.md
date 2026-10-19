@@ -8,7 +8,7 @@
 
 - Keep each service implementation and its `README.md` in `<service>/`.
 - Keep repository tooling generic; adding a service must not require changing shared workflow logic.
-- Treat `$FLYLAB_RENDER_DIRECTORY` (`~/.cache/flylab/render`) as ephemeral deployment output.
+- Treat `$FLYLAB_RENDER_DIRECTORY` (a temporary directory) as ephemeral deployment output.
 
 ## Style
 

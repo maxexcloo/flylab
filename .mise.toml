@@ -1,5 +1,5 @@
 [env]
-FLYLAB_RENDER_DIRECTORY = "{{env.HOME}}/.cache/flylab/render"
+FLYLAB_RENDER_DIRECTORY = "{{ env.TMPDIR | default(value='/tmp') | trim_end(pat='/') }}/flylab-render"
 
 [vars]
 python = "uv run --no-project --python python"
