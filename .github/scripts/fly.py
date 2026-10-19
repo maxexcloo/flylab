@@ -193,7 +193,7 @@ def render(service):
     shutil.copytree(
         service_path,
         render_path,
-        ignore=shutil.ignore_patterns("__pycache__", "tests"),
+        ignore=shutil.ignore_patterns("__pycache__"),
     )
     renderer = service_path / "render.py"
     if renderer.is_file():
