@@ -108,9 +108,7 @@ HOMELAB_REVISION=<full-commit-sha> KUBELAB_REVISION=<full-commit-sha> mise run r
 HOMELAB_DIRECTORY=../homelab KUBELAB_DIRECTORY=../kubelab mise run render gatus
 ```
 
-Local checkout rendering includes uncommitted changes. These commands resolve no
-secrets and make no deployment changes. Generated output stays under `.render/`;
-`mise run cleanup` removes it. Use `mise run fmt` to format supported files.
+Local checkout rendering includes uncommitted changes.
 
 Display names use uppercase cluster suffixes for apps and lowercase
 `network-hostname` names for machines. Probe targets retain their native DNS names.
