@@ -171,107 +171,25 @@ def monitored_machines(machines, domain):
                 yield network, name, hostname, f"{hostname}.{network}.{domain}", machine
 
 
-def monitoring_credentials(inventory, manifests):
+def monitoring_credentials(inventory):
     headers = {}
     secrets = {}
-    clusters = sorted(
-        {entry["cluster"] for entry in inventory if entry["type"] == "route"}
-    )
-    for cluster in clusters:
-        resources = []
-        for target in (
-            f"apps/overlays/{cluster}.yaml",
-            f"clusters/{cluster}/platform.yaml",
-        ):
-            resources.extend(
-                resource
-                for resource in yaml.safe_load_all((manifests / target).read_text())
-                if resource
-            )
-        external_secrets = {}
-        stores = {}
-        for resource in resources:
-            kind = resource["kind"]
-            metadata = resource["metadata"]
-            if kind in {"ClusterSecretStore", "SecretStore"}:
-                namespace = (
-                    metadata.get("namespace", "") if kind == "SecretStore" else ""
-                )
-                stores[(kind, namespace, metadata["name"])] = resource
-            elif kind == "ExternalSecret":
-                target = (
-                    resource["spec"].get("target", {}).get("name", metadata["name"])
-                )
-                key = (metadata["namespace"], target)
-                if key in external_secrets:
-                    raise ValueError(f"Multiple ExternalSecrets target {key}")
-                external_secrets[key] = resource
-        for entry in inventory:
-            if entry.get("cluster") != cluster or not entry.get("headers"):
-                continue
-            if urlsplit(entry["monitor"]).hostname not in entry["hostnames"]:
+    for entry in inventory:
+        for header, reference in entry["headers"].items():
+            if not re.fullmatch(r"op://[a-zA-Z0-9_./ -]+", reference):
                 raise ValueError(
-                    "Monitoring credentials must target the declaring route"
+                    "Unsupported characters in monitoring secret reference; use item IDs"
                 )
-            namespace = entry["namespace"]
-            if not isinstance(entry["headers"], dict):
-                raise TypeError(
-                    "Monitoring headers must map names to Secret references"
-                )
-            for header, reference in entry["headers"].items():
-                if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9a-zA-Z-]+", header):
-                    raise ValueError("Invalid monitoring header name")
-                if not isinstance(reference, dict) or set(reference) != {"name", "key"}:
-                    raise ValueError(
-                        "Monitoring headers require a namespace-local Secret name and key"
-                    )
-                secret_name, field = reference["name"], reference["key"]
-                resource = external_secrets[(namespace, secret_name)]
-                spec = resource["spec"]
-                if spec.get("target", {}).get("template"):
-                    raise ValueError(
-                        "Monitoring secrets must use direct ExternalSecret data mappings"
-                    )
-                store = spec["secretStoreRef"]
-                kind = store.get("kind", "SecretStore")
-                store_namespace = namespace if kind == "SecretStore" else ""
-                vaults = stores[(kind, store_namespace, store["name"])]["spec"][
-                    "provider"
-                ]["onepassword"]["vaults"]
-                if len(vaults) != 1:
-                    raise ValueError(
-                        "Monitoring secrets require exactly one 1Password vault"
-                    )
-                mappings = [
-                    data for data in spec.get("data", []) if data["secretKey"] == field
-                ]
-                if len(mappings) != 1 or "sourceRef" in mappings[0]:
-                    raise ValueError(
-                        f"Unsupported monitoring secret mapping: {namespace}/{secret_name}/{field}"
-                    )
-                remote = mappings[0]["remoteRef"]
-                reference = (
-                    f"op://{next(iter(vaults))}/{remote['key']}/{remote['property']}"
-                )
-                if not re.fullmatch(r"op://[a-zA-Z0-9_./ -]+", reference):
-                    raise ValueError(
-                        "Unsupported characters in monitoring secret reference; use item IDs"
-                    )
-                name = (
-                    "GATUS_HEADER_"
-                    + hashlib.sha256(reference.encode()).hexdigest()[:16].upper()
-                )
-                value = "${" + name + "}"
-                endpoint_headers = headers.setdefault(entry["monitor"], {})
-                if (
-                    header.lower() in endpoint_headers
-                    and endpoint_headers[header.lower()] != value
-                ):
-                    raise ValueError(
-                        f"Conflicting monitoring header: {entry['monitor']}"
-                    )
-                endpoint_headers[header.lower()] = value
-                secrets[name] = reference
+            name = (
+                "GATUS_HEADER_"
+                + hashlib.sha256(reference.encode()).hexdigest()[:16].upper()
+            )
+            value = "${" + name + "}"
+            endpoint_headers = headers.setdefault(entry["monitor"], {})
+            if endpoint_headers.get(header.lower(), value) != value:
+                raise ValueError(f"Conflicting monitoring header: {entry['monitor']}")
+            endpoint_headers[header.lower()] = value
+            secrets[name] = reference
     return headers, secrets
 
 
@@ -315,27 +233,15 @@ def provider_endpoints(providers, domain):
 
 
 def render(repository, homelab, output):
-    with tempfile.TemporaryDirectory(prefix="gatus-manifests-") as directory:
-        manifests = Path(directory)
-        subprocess.run(
-            ["bash", "scripts/render_manifests.sh", directory],
+    inventory = json.loads(
+        subprocess.check_output(
+            ["bash", "scripts/render_service_inventory.sh"],
             cwd=repository,
-            check=True,
+            env=dict(os.environ, HOMELAB_DIRECTORY=str(homelab)),
+            text=True,
         )
-        inventory = json.loads(
-            subprocess.check_output(
-                [
-                    "bash",
-                    "scripts/render_service_inventory.sh",
-                    "--manifest-directory",
-                    directory,
-                ],
-                cwd=repository,
-                env=dict(os.environ, HOMELAB_DIRECTORY=str(homelab)),
-                text=True,
-            )
-        )
-        headers, secrets = monitoring_credentials(inventory, manifests)
+    )
+    headers, secrets = monitoring_credentials(inventory)
     zones = [
         yaml.safe_load(path.read_text())["name"]
         for path in sorted((homelab / "data/dns").glob("*.yaml"))
