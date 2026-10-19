@@ -1,9 +1,6 @@
 import importlib.util
-import tempfile
 import unittest
 from pathlib import Path
-
-import yaml
 
 SPEC = importlib.util.spec_from_file_location(
     "render", Path(__file__).parents[1] / "render.py"
@@ -216,105 +213,33 @@ class MachineServicesTest(unittest.TestCase):
 
 
 class MonitoringCredentialsTest(unittest.TestCase):
-    def test_explicit_headers_follow_external_secret_references(self):
+    def test_header_references_become_hashed_fly_secrets(self):
+        reference = "op://vault-id/item-id/monitoring-token"
         inventory = [
-            route(
-                namespace="example",
-                headers={
-                    "x-gatus-token": {"name": "credentials", "key": "monitoring-token"}
-                },
-                cloudflareProxied="true",
-                hostnames=["media.example.com"],
-            )
+            route(headers={"X-Gatus-Token": reference}),
+            route(headers={}, monitor="https://plain.example.com"),
         ]
-        resources = [
-            {
-                "kind": "ClusterSecretStore",
-                "metadata": {"name": "onepassword"},
-                "spec": {"provider": {"onepassword": {"vaults": {"vault-id": 1}}}},
-            },
-            {
-                "kind": "ExternalSecret",
-                "metadata": {"name": "source", "namespace": "example"},
-                "spec": {
-                    "secretStoreRef": {
-                        "kind": "ClusterSecretStore",
-                        "name": "onepassword",
-                    },
-                    "target": {"name": "credentials"},
-                    "data": [
-                        {
-                            "secretKey": "monitoring-token",
-                            "remoteRef": {
-                                "key": "Example App",
-                                "property": "monitoring-token",
-                            },
-                        }
-                    ],
-                },
-            },
-            {
-                "kind": "CloudflareWAFPolicy",
-                "metadata": {"name": "example", "namespace": "example"},
-                "spec": {
-                    "rule": {
-                        "enabled": True,
-                        "expression": 'not any(http.request.headers["x-gatus-token"][*] eq "{{ example:credentials:monitoring-token }}")',
-                    }
-                },
-            },
-        ]
-        with tempfile.TemporaryDirectory() as directory:
-            manifests = Path(directory)
-            apps = manifests / "apps/overlays/mbk.yaml"
-            platform = manifests / "clusters/mbk/platform.yaml"
-            apps.parent.mkdir(parents=True)
-            platform.parent.mkdir(parents=True)
-            apps.write_text(yaml.safe_dump_all(resources[1:]))
-            platform.write_text(yaml.safe_dump(resources[0]))
-            headers, secrets = RENDER.monitoring_credentials(inventory, manifests)
-            self.assertEqual(
-                list(secrets.values()), ["op://vault-id/Example App/monitoring-token"]
+        headers, secrets = RENDER.monitoring_credentials(inventory)
+        self.assertEqual(list(secrets.values()), [reference])
+        self.assertEqual(
+            headers,
+            {route()["monitor"]: {"x-gatus-token": "${" + next(iter(secrets)) + "}"}},
+        )
+        changed = [route(headers={"x-gatus-token": reference.replace("item", "other")})]
+        self.assertNotEqual(
+            set(RENDER.monitoring_credentials(changed)[1]), set(secrets)
+        )
+
+    def test_unsafe_and_conflicting_references_fail(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported characters"):
+            RENDER.monitoring_credentials([route(headers={"x-token": "op://v/i/f}}"})])
+        with self.assertRaisesRegex(ValueError, "Conflicting monitoring header"):
+            RENDER.monitoring_credentials(
+                [
+                    route(headers={"x-token": "op://vault/one/field"}),
+                    route(headers={"X-Token": "op://vault/two/field"}),
+                ]
             )
-            self.assertEqual(
-                headers[route()["monitor"]]["x-gatus-token"],
-                "${" + next(iter(secrets)) + "}",
-            )
-            # A different app is discovered from declarations without a Fly-side entry.
-            resources[1]["spec"]["data"][0]["remoteRef"]["key"] = "Another App"
-            apps.write_text(yaml.safe_dump_all(resources[1:]))
-            _, changed = RENDER.monitoring_credentials(inventory, manifests)
-            self.assertEqual(
-                list(changed.values()), ["op://vault-id/Another App/monitoring-token"]
-            )
-            self.assertNotEqual(set(secrets), set(changed))
-            # Header credentials cannot leave the declaring route's hostnames.
-            unrelated = [dict(inventory[0], monitor="https://elsewhere.example.com")]
-            with self.assertRaises(ValueError):
-                RENDER.monitoring_credentials(unrelated, manifests)
-            # Private routes can explicitly request credentials too; WAF syntax is irrelevant.
-            private = [dict(inventory[0], cloudflareProxied="false")]
-            self.assertEqual(
-                RENDER.monitoring_credentials(private, manifests)[1], changed
-            )
-            resources[2]["spec"]["rule"]["expression"] = "arbitrary WAF policy"
-            resources[2]["spec"]["rule"]["enabled"] = False
-            apps.write_text(yaml.safe_dump_all(resources[1:]))
-            self.assertEqual(
-                RENDER.monitoring_credentials(inventory, manifests)[1], changed
-            )
-            self.assertEqual(
-                RENDER.monitoring_credentials(
-                    [dict(inventory[0], headers={})], manifests
-                ),
-                ({}, {}),
-            )
-            resources[1]["spec"]["target"]["template"] = {
-                "data": {"token": "transformed"}
-            }
-            apps.write_text(yaml.safe_dump_all(resources[1:]))
-            with self.assertRaises(ValueError):
-                RENDER.monitoring_credentials(inventory, manifests)
 
 
 class OrderingTest(unittest.TestCase):

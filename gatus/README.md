@@ -12,10 +12,11 @@ generated monitoring configuration and credential-aware startup script.
 
 Monitoring headers are explicitly declared on Kubelab routes with
 `monitoring.excloo.dev/headers`, a JSON mapping of header names to namespace-local
-Secret `name` and `key` references. Direct ExternalSecret mappings and their
-SecretStore identify the 1Password item and vault. WAF expressions are not parsed.
-Credentials are restricted to the declaring route’s hostnames; transformed Secret
-templates are rejected. Only GitHub Actions resolves values.
+Secret `name` and `key` references. Kubelab's service inventory resolves each
+reference through its ExternalSecret and SecretStore to a 1Password reference and
+restricts probes to the declaring route’s hostnames. Flylab stores each reference
+as a hashed Fly secret name. WAF expressions are not parsed. Only GitHub Actions
+resolves values.
 
 - **1Password**: `OP_SERVICE_ACCOUNT_TOKEN` reads the app vaults discovered from
   Kubelab. Give it read-only access to Flylab and the cluster vaults; new apps within those
