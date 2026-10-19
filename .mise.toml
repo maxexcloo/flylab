@@ -22,6 +22,7 @@ run = '{{vars.python}} .github/scripts/fly.py --render-all'
 description = "Check Repository Files & Run Tests Without Fetching Inventories"
 depends = [
   "check:actions",
+  "check:mise",
   "check:oxfmt",
   "check:python",
   "check:shell",
