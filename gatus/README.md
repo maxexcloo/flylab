@@ -57,13 +57,13 @@ Homelab machine services opt in with `services.<name>.monitoring: true`; their
 scheme, port and optional display name live beside the endpoint. Management
 consoles use `services.management`. Gatus's own hostname comes from `deployment.toml`.
 No Homepage configuration, running cluster API or OpenTofu state is read.
-Services are grouped by the longest matching Homelab DNS zone. Route names retain
-cluster suffixes. Invalid URLs, conflicting duplicates and an empty route inventory
-stop deployment.
+Services use their Homepage group, so Gatus and Homepage share categories; Gatus
+itself appears under `Operations`. Route names retain cluster suffixes. Invalid
+URLs, conflicting duplicates and an empty route inventory stop deployment.
 
 Homelab's `data/machines.yaml` supplies machine identities, network locations,
 types, display groups, monitoring eligibility, Tailscale eligibility and declared public addresses. `data/domains.yaml`
-supplies the infrastructure DNS suffix; `data/dns/*.yaml` supplies service groups.
+supplies the infrastructure DNS suffix.
 Typed, Tailscale-enabled machines receive internal ICMP checks using Homelab's
 `<hostname>.<network>.<infrastructure-domain>` convention. Declared public IPs
 receive separate external checks, preferring IPv4 when both families are present.
@@ -71,8 +71,9 @@ Provider-assigned public cluster nodes use Homelab’s `public.<cluster>.<servic
 DNS record, derived from the cluster’s public node selection. No OpenTofu state,
 provider credentials or resolved device addresses are read.
 Untyped personal devices and Tailscale-disabled private devices are excluded;
-machines with `monitoring: false` are also excluded. The `types` mapping in
-Homelab supplies the display group for each machine type.
+machines with `monitoring: false` are also excluded. Machine checks share the
+`Servers` group, matching Homepage's tab, and name their `Internal` or `External`
+scope.
 
 Homelab's `data/providers.yaml` owns provider bookmarks, widget templates and
 native Gatus probe settings in top-level `alerts`, `conditions` and `dns` fields.
@@ -83,13 +84,10 @@ Kubelab consumes the same inventory for Homepage.
 
 ## Monitoring
 
-The default UI sort is `group`: domain groups appear first, then category groups
-such as `Providers`, `Servers (External)` and `Servers (Internal)`, alphabetically
-within each set. Category groups carry an invisible Hangul filler (U+3164) prefix
-because Gatus collates with `localeCompare`, which ignores zero-width spaces. This
-order comes from the group names, not the order of YAML files. The browser can retain a
-user-selected sort or filter. Renaming groups or endpoints changes Gatus history
-keys; memory-only storage also resets on restart.
+The default UI sort is `group`, which orders groups alphabetically by name, not by
+the order of YAML files. The browser can retain a user-selected sort or filter.
+Renaming groups or endpoints changes Gatus history keys; memory-only storage also
+resets on restart.
 
 Gatus generates `infrastructure.yaml`, `providers.yaml` and `services.yaml` from
 Homelab and Kubelab. Local configuration controls mail delivery, thresholds and
