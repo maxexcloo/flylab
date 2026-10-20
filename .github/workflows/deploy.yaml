@@ -50,17 +50,17 @@ jobs:
           tools: actionlint jq node@24 npm:renovate oxfmt python ruff shellcheck uv yq
       - name: Run Checks
         run: mise run check:static
-      - name: Check Rendering
-        if: github.event_name == 'pull_request'
+      - if: github.event_name == 'pull_request'
+        name: Check Rendering
         run: mise run check:render
-      - name: Select Deployments
+      - id: select
         if: github.event_name != 'pull_request'
-        id: select
+        name: Select Deployments
         run: mise run deployments:select
 
   reconcile:
-    name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.app }}
     if: github.event_name != 'pull_request' && needs.prepare.outputs.deployments != '[]'
+    name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.app }}
     needs: prepare
     runs-on: ubuntu-latest
     strategy:
@@ -82,15 +82,15 @@ jobs:
         with:
           project-tools: true
           tools: 1password-cli jq python uv yq
-      - name: Render
-        if: matrix.deployment.action == 'deploy'
+      - if: matrix.deployment.action == 'deploy'
+        name: Render
+        run: mise run render "$SERVICE_DIRECTORY"
         env:
           HOMELAB_REVISION: ${{ inputs.homelab_revision }}
           KUBELAB_REVISION: ${{ inputs.kubelab_revision }}
           SERVICE_DIRECTORY: ${{ matrix.deployment.directory }}
-        run: mise run render "$SERVICE_DIRECTORY"
       - name: Reconcile
+        run: op run -- mise run deployments:reconcile
         env:
           FLY_API_TOKEN: op://Flylab/Fly.io/password
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        run: op run -- mise run deployments:reconcile
