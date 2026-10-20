@@ -1,41 +1,42 @@
 # Flylab
 
-Independent Fly.io services for the homelab. Each service keeps its native Fly
-configuration, deployment settings, application files and README in its own
-root-level directory.
+Independent Fly.io services for my homelab. Each service has its own top-level
+directory with its native Fly configuration, deployment settings, application
+files and README.
 
 ## Credentials
 
-GitHub Actions keeps only `OP_SERVICE_ACCOUNT_TOKEN` as its bootstrap credential.
-It reads the Fly deployment token from `op://Flylab/Fly.io/password` and resolves
-service-specific 1Password references. Give the service account read-only access
-to the Flylab vault and the required application vaults. The Fly token is used
-only by deployment tooling; it is never passed into applications. Keep the
-service-account recovery copy in `Homelab/Connect Token: fly`.
+The only credential GitHub Actions stores is `OP_SERVICE_ACCOUNT_TOKEN`. With
+it, the workflow reads the Fly deployment token from `op://Flylab/Fly.io/password`
+and resolves each service's 1Password references. Give the service account
+read-only access to the Flylab vault and the application vaults it needs. Only the
+deployment tooling uses the Fly token, and it's never passed into applications.
+Keep the service account's recovery copy in `Homelab/Connect Token: fly`.
 
 ## Deployment
 
 1. Pushes to `main`, except Markdown-only changes, deploy every directory
    containing `deployment.toml`. Manual runs can select a service directory or Fly
    app name, or explicitly delete an app.
-   Pull requests render every configured service. Deployment runs check repository
-   files, then render each selected service once using the requested
-   inventory revisions before resolving credentials. Deletion skips inventory rendering.
+   Pull requests render every configured service. Deployment runs check the
+   repository files, then render each selected service once from the requested
+   inventory revisions before resolving credentials. Deletion skips inventory
+   rendering.
 2. Each service is copied into `$FLYLAB_RENDER_DIRECTORY` (set in `.mise.toml`).
-   An optional service-local `render.py` prepares generated application files
-   without deployment credentials. Its optional `requirements.txt` supplies renderer
+   A service can have its own `render.py` to generate application files without
+   deployment credentials, plus a `requirements.txt` for the renderer's
    dependencies.
-3. GitHub Actions resolves `secrets.env` references through 1Password. Values pass
-   directly to Fly over standard input; they are never written to files or
+3. GitHub Actions resolves `secrets.env` references through 1Password. Values go
+   straight to Fly over standard input and are never written to files or
    workflow artefacts.
-4. Deployment reconciles certificates and secrets, deploys and reconciles machine
-   count. It waits for native Fly health checks to pass on every machine, including
-   machines added after deployment. Secrets absent from `secrets.env` are staged
-   for removal.
+4. Deployment reconciles certificates and secrets, deploys, then reconciles the
+   machine count. It waits for native Fly health checks to pass on every machine,
+   including machines added after deployment. Secrets missing from `secrets.env`
+   are staged for removal.
 
-Fly settings live in `<service>/fly.toml`; `deployment.toml` declares the
-certificates and machine count. Adding a service does not require changing shared
-workflow logic. Document its inputs, credentials and operating requirements in
+Fly settings live in `<service>/fly.toml`, and `deployment.toml` declares the
+certificates and machine count. Adding a service doesn't need any changes to the
+shared workflow. Document its inputs, credentials and operating requirements in
 `<service>/README.md`.
 
 ## Development
@@ -51,8 +52,8 @@ mise run render <service>
 
 Each service declares native HTTP service health checks in `fly.toml`.
 
-Rendering resolves no secrets and makes no deployment changes. Generated output
-goes to `$FLYLAB_RENDER_DIRECTORY/<service>` in the system temporary directory;
+Rendering doesn't resolve secrets or change deployments. Output goes to
+`$FLYLAB_RENDER_DIRECTORY/<service>` in the system temporary directory, and
 `mise run cleanup` removes it. Use `mise run fmt` to format supported files. See
 each service's README for its rendering inputs.
 
