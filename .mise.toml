@@ -42,7 +42,7 @@ run = 'rm -fr -- "$FLYLAB_RENDER_DIRECTORY"'
 
 [tasks.fmt]
 description = "Format Supported Files"
-depends = ["fmt:oxfmt", "fmt:python"]
+depends = ["fmt:mise", "fmt:oxfmt", "fmt:python"]
 
 [tasks.render]
 description = "Render A Service Without Resolving Secrets Or Deploying"
