@@ -1,6 +1,3 @@
-[env]
-FLYLAB_RENDER_DIRECTORY = "{{ env.TMPDIR | default(value='/tmp') | trim_end(pat='/') }}/flylab-render"
-
 [vars]
 python = "uv run --no-project --python python"
 
@@ -38,7 +35,7 @@ hadolint --failure-threshold error */Dockerfile
 
 [tasks.cleanup]
 description = "Remove Rendered Artefacts"
-run = 'rm -fr -- "$FLYLAB_RENDER_DIRECTORY"'
+run = 'rm -fr -- "${FLYLAB_RENDER_DIRECTORY:?Set FLYLAB_RENDER_DIRECTORY to the rendered output directory}"'
 
 [tasks.fmt]
 description = "Format Supported Files"

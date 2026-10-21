@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 import tomllib
 from pathlib import Path
@@ -265,8 +266,16 @@ def main():
             if args.render
             else [deployment["directory"] for deployment in load_deployments()]
         )
-        for service in services:
-            print(render(service))
+        temporary_output = None
+        if "FLYLAB_RENDER_DIRECTORY" not in os.environ:
+            temporary_output = tempfile.mkdtemp(prefix="flylab-render-")
+            os.environ["FLYLAB_RENDER_DIRECTORY"] = temporary_output
+        try:
+            for service in services:
+                print(render(service))
+        finally:
+            if args.render_all and temporary_output:
+                shutil.rmtree(temporary_output)
         return
     deployment = json.loads(os.environ["DEPLOYMENT"])
     action = deployment["action"]

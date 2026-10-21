@@ -181,30 +181,46 @@ def monitoring_credentials(inventory):
     return headers, secrets
 
 
-def node_constraints(value, network_label):
-    """Yield required node network and hostname values from pod scheduling."""
+def node_constraints(value, nodes, networks, network_label):
+    """Yield node sets allowed by required scheduling; affinity terms are ORed."""
+
+    def matching_nodes(expressions):
+        allowed = set(nodes)
+        for expression in expressions:
+            label = expression.get("key")
+            if expression.get("operator") != "In":
+                continue
+            values = set(expression["values"])
+            if label == network_label:
+                allowed &= set().union(*(networks.get(v, set()) for v in values))
+            elif label == "kubernetes.io/hostname":
+                allowed &= values
+        return allowed
+
     if isinstance(value, list):
         for item in value:
-            yield from node_constraints(item, network_label)
+            yield from node_constraints(item, nodes, networks, network_label)
     elif isinstance(value, dict):
         for key, item in value.items():
             if key == "nodeSelector" and isinstance(item, dict):
-                for label in (network_label, "kubernetes.io/hostname"):
-                    if isinstance(item.get(label), str):
-                        yield label, {item[label]}
-            elif key == "nodeAffinity" and isinstance(item, dict):
-                # Preferred affinity cannot place a workload without the cluster API.
-                required = item.get(
-                    "requiredDuringSchedulingIgnoredDuringExecution", {}
+                yield matching_nodes(
+                    [
+                        {"key": label, "operator": "In", "values": [selected]}
+                        for label, selected in item.items()
+                    ]
                 )
-                for term in required.get("nodeSelectorTerms", []):
-                    for expression in term.get("matchExpressions", []):
-                        if expression.get("operator") == "In" and expression.get(
-                            "key"
-                        ) in {network_label, "kubernetes.io/hostname"}:
-                            yield expression["key"], set(expression["values"])
+            elif key == "nodeAffinity" and isinstance(item, dict):
+                required = item.get("requiredDuringSchedulingIgnoredDuringExecution")
+                if required is not None:
+                    yield set().union(
+                        *(
+                            matching_nodes(term.get("matchExpressions", []))
+                            for term in required.get("nodeSelectorTerms", [])
+                            if term
+                        )
+                    )
             elif key not in {"podAffinity", "podAntiAffinity"}:
-                yield from node_constraints(item, network_label)
+                yield from node_constraints(item, nodes, networks, network_label)
 
 
 def placements(manifests, clusters, services_domain):
@@ -231,10 +247,10 @@ def placements(manifests, clusters, services_domain):
                 }:
                     continue
                 allowed = set(nodes)
-                for label, values in node_constraints(document, network_label):
-                    if label == network_label:
-                        values = set().union(*(networks.get(v, set()) for v in values))
-                    allowed &= values
+                for constraint in node_constraints(
+                    document, nodes, networks, network_label
+                ):
+                    allowed &= constraint
                 metadata = document["metadata"]
                 result[(cluster_name, metadata.get("namespace"), metadata["name"])] = (
                     allowed
@@ -363,11 +379,15 @@ def route_location(entry, cluster, placements):
         if key[:2] == (cluster, namespace)
     }
     # Extra routes such as `<workload>-public` share their workload's placement.
-    matches = [workload for workload in workloads if name.startswith(workload)]
+    matches = [
+        workload
+        for workload in workloads
+        if name == workload or name.startswith(f"{workload}-")
+    ]
     if matches:
         nodes = workloads[max(matches, key=len)]
     else:
-        nodes = set().union(*workloads.values())
+        return cluster
     if len(nodes) != 1:
         return cluster
     return f"{cluster}/{next(iter(nodes))}"

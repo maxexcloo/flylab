@@ -36,6 +36,9 @@ jobs:
   prepare:
     name: Check & Select
     runs-on: ubuntu-latest
+    concurrency:
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+      group: fly-check-${{ github.event.pull_request.number || github.run_id }}
     outputs:
       deployments: ${{ steps.select.outputs.deployments }}
     steps:
@@ -71,6 +74,7 @@ jobs:
       cancel-in-progress: false
       group: fly-${{ matrix.deployment.app }}
     env:
+      FLYLAB_RENDER_DIRECTORY: /tmp/flylab-render
       DEPLOYMENT: ${{ toJSON(matrix.deployment) }}
     steps:
       - name: Checkout

@@ -70,7 +70,9 @@ Gatus itself appears under `Operations`. Names end with Homepage's location tag:
 `<cluster>/<node>` for routes, `<network>-<hostname>` for machine services and
 `fly` for Gatus. Route placement comes from required workload node selectors and
 affinity, using Homelab's `external` public node and `internal` other nodes.
-Routes that only prefer a node keep the bare cluster tag. Invalid URLs,
+Routes that only prefer a node, allow multiple nodes or cannot be matched to a
+workload keep the bare cluster tag. Required affinity alternatives are combined
+before applying other constraints. Invalid URLs,
 conflicting duplicates or an empty route inventory stop the deployment.
 
 Homelab's `data/machines.yaml` supplies machine identities, network locations,

@@ -22,7 +22,7 @@ Keep the service account's recovery copy in `Homelab/Connect Token: fly`.
    repository files, then render each selected service once from the requested
    inventory revisions before resolving credentials. Deletion skips inventory
    rendering.
-2. Each service is copied into `$FLYLAB_RENDER_DIRECTORY` (set in `.mise.toml`).
+2. Each service is copied into `$FLYLAB_RENDER_DIRECTORY`, isolated per CI job.
    A service can have its own `render.py` to generate application files without
    deployment credentials, plus a `requirements.txt` for the renderer's
    dependencies.
@@ -53,8 +53,10 @@ mise run render <service>
 Each service declares native HTTP service health checks in `fly.toml`.
 
 Rendering doesn't resolve secrets or change deployments. Output goes to
-`$FLYLAB_RENDER_DIRECTORY/<service>` in the system temporary directory, and
-`mise run cleanup` removes it. Use `mise run fmt` to format supported files. See
+a unique system temporary directory, printed after rendering. Set
+`FLYLAB_RENDER_DIRECTORY` explicitly to reuse a chosen output directory;
+`FLYLAB_RENDER_DIRECTORY=<output-directory> mise run cleanup` removes it.
+Rendering checks clean up their output automatically. Use `mise run fmt` to format supported files. See
 each service's README for its rendering inputs.
 
 ## Licence
