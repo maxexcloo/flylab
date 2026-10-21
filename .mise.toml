@@ -4,7 +4,7 @@ python = "uv run --no-project --python python"
 [tools]
 flyctl = "latest"
 hadolint = "latest"
-# Match the Kubernetes renderer owned by Kubelab; dependency updates skip it.
+# Match Homelab's cluster `kubernetes_version` (data/clusters.yaml); updates skip it.
 kubectl = "1.37.1"
 "pipx:check-jsonschema" = "latest"
 

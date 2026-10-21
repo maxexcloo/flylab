@@ -3,7 +3,7 @@
   extends: ["github>maxexcloo/dotfiles//renovate/default.json5"],
   packageRules: [
     {
-      description: "kubectl matches the Kubernetes renderer owned by Kubelab",
+      description: "kubectl matches the cluster `kubernetes_version` owned by Homelab",
       enabled: false,
       matchManagers: ["mise"],
       matchDepNames: ["kubectl"],
