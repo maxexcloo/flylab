@@ -119,9 +119,17 @@ def main():
     reconcile_secrets(app, deployment_path)
     # Deploy waits for native health checks; --ha=false keeps a new app to one machine.
     subprocess.run(
-        ["flyctl", "deploy", "--app", app, "--config", "fly.toml", "--ha=false"],
+        [
+            "flyctl",
+            "deploy",
+            str(deployment_path),
+            "--app",
+            app,
+            "--config",
+            str(deployment_path / "fly.toml"),
+            "--ha=false",
+        ],
         check=True,
-        cwd=deployment_path,
     )
 
 
