@@ -150,11 +150,8 @@ def provider_endpoints(providers, domain):
                     "group": "Providers",
                     "name": name,
                     "url": provider["url"],
-                    **{
-                        key: provider[key]
-                        for key in ("alerts", "conditions")
-                        if key in provider
-                    },
+                    "alerts": [{"type": "email"}],
+                    "conditions": provider["conditions"],
                 }
             )
         if "dns" in provider:
@@ -168,11 +165,8 @@ def provider_endpoints(providers, domain):
                         "query-name": resolver.get("query-name", domain),
                         "query-type": resolver["query-type"],
                     },
-                    **{
-                        key: resolver[key]
-                        for key in ("alerts", "conditions")
-                        if key in resolver
-                    },
+                    "alerts": [{"type": "email"}],
+                    "conditions": resolver["conditions"],
                 }
             )
     return sorted(probes, key=lambda probe: probe["name"].casefold())
