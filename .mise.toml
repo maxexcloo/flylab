@@ -1,63 +1,27 @@
-[vars]
-python = "uv run --no-project --python python"
-
 [tools]
 flyctl = "latest"
-hadolint = "latest"
-# Match Homelab's cluster `kubernetes_version` (data/clusters.yaml); updates skip it.
-kubectl = "1.37.1"
-"pipx:check-jsonschema" = "latest"
+kubectl = "latest"
 
 # Development
-[tasks.check]
-description = "Run Static & Rendering Checks"
-depends = ["check:render", "check:static"]
-
 [tasks."check:render"]
-description = "Render Every Configured Service Without Resolving Secrets"
-run = '{{vars.python}} .github/scripts/fly.py --render-all'
-
-[tasks."check:static"]
-description = "Check Repository Files Without Fetching Inventories"
-depends = [
-  "check:actions",
-  "check:mise",
-  "check:oxfmt",
-  "check:python",
-  "check:shell",
-  "check:updates",
-  "check:whitespace",
-]
-run = """
-check-jsonschema --builtin-schema github-workflows .github/workflows/*.yaml
-hadolint --failure-threshold error */Dockerfile
-"""
-
-[tasks.cleanup]
-description = "Remove Rendered Artefacts"
-run = 'rm -fr -- "${FLYLAB_RENDER_DIRECTORY:?Set FLYLAB_RENDER_DIRECTORY to the rendered output directory}"'
+description = "Render Gatus Without Resolving Secrets"
+run = '''
+set -eu
+FLYLAB_RENDER_DIRECTORY=$(mktemp -d)
+export FLYLAB_RENDER_DIRECTORY
+trap 'rm -fr -- "$FLYLAB_RENDER_DIRECTORY"' EXIT
+mise run render
+'''
 
 [tasks.fmt]
-description = "Format Supported Files"
 depends = ["fmt:mise", "fmt:oxfmt", "fmt:python"]
 
 [tasks.render]
-description = "Render A Service Without Resolving Secrets Or Deploying"
-run = '{{vars.python}} .github/scripts/fly.py --render "$usage_service"'
-usage = 'arg "<service>"'
-
-# Deployment
-[tasks."deployments:reconcile"]
-description = "Deploy Or Delete The Selected Fly App (GitHub Actions Only)"
-run = "{{vars.python}} .github/scripts/fly.py"
-
-[tasks."deployments:select"]
-description = "Select Deployments For The Current GitHub Actions Event"
-run = "{{vars.python}} .github/scripts/select-deployments.py"
-
-# Dependencies
-[tasks."dependencies:mise:check"]
-run = "mise upgrade --bump --dry-run --exclude kubectl --local --no-prune"
-
-[tasks."dependencies:mise:update"]
-run = "mise upgrade --bump --exclude kubectl --local --no-prune"
+description = "Render Gatus Without Resolving Secrets Or Deploying"
+run = '''
+set -eu
+output=${FLYLAB_RENDER_DIRECTORY:-$(mktemp -d)}
+cp -R gatus/. "$output"
+uv run --script gatus/render.py "$output"
+echo "$output"
+'''

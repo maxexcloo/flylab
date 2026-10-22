@@ -9,17 +9,6 @@ on:
       - "**.md"
   workflow_dispatch:
     inputs:
-      action:
-        default: deploy
-        description: Action
-        type: choice
-        options:
-          - deploy
-          - delete
-      deployment:
-        description: Service Directory Or App Name
-        required: false
-        type: string
       homelab_revision:
         description: Homelab Commit SHA (Defaults To Current Main)
         required: false
@@ -33,49 +22,14 @@ permissions:
   contents: read
 
 jobs:
-  prepare:
-    name: Check & Select
+  deploy:
+    name: ${{ github.event_name == 'pull_request' && 'Check' || 'Check & Deploy' }}
     runs-on: ubuntu-latest
     concurrency:
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-      group: fly-check-${{ github.event.pull_request.number || github.run_id }}
-    outputs:
-      deployments: ${{ steps.select.outputs.deployments }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Set Up Shared Tools & Tasks
-        uses: maxexcloo/dotfiles/.github/actions/mise@main
-        with:
-          project-tools: true
-          tools: actionlint jq node@24 npm:renovate oxfmt python ruff shellcheck uv yq
-      - name: Run Checks
-        run: mise run check:static
-      - if: github.event_name == 'pull_request'
-        name: Check Rendering
-        run: mise run check:render
-      - id: select
-        if: github.event_name != 'pull_request'
-        name: Select Deployments
-        run: mise run deployments:select
-
-  reconcile:
-    if: github.event_name != 'pull_request' && needs.prepare.outputs.deployments != '[]'
-    name: ${{ matrix.deployment.action == 'deploy' && 'Deploy' || 'Delete' }} ${{ matrix.deployment.app }}
-    needs: prepare
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        deployment: ${{ fromJSON(needs.prepare.outputs.deployments) }}
-    concurrency:
-      cancel-in-progress: false
-      group: fly-${{ matrix.deployment.app }}
+      group: deploy-${{ github.event.pull_request.number || 'main' }}
     env:
       FLYLAB_RENDER_DIRECTORY: /tmp/flylab-render
-      DEPLOYMENT: ${{ toJSON(matrix.deployment) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -85,16 +39,17 @@ jobs:
         uses: maxexcloo/dotfiles/.github/actions/mise@main
         with:
           project-tools: true
-          tools: 1password-cli jq python uv yq
-      - if: matrix.deployment.action == 'deploy'
-        name: Render
-        run: mise run render "$SERVICE_DIRECTORY"
+          tools: 1password-cli actionlint jq node@24 npm:renovate oxfmt python ruff shellcheck uv yq
+      - name: Run Checks
+        run: mise run check
+      - name: Render
+        run: mise run render
         env:
           HOMELAB_REVISION: ${{ inputs.homelab_revision }}
           KUBELAB_REVISION: ${{ inputs.kubelab_revision }}
-          SERVICE_DIRECTORY: ${{ matrix.deployment.directory }}
-      - name: Reconcile
-        run: op run -- mise run deployments:reconcile
+      - if: github.event_name != 'pull_request'
+        name: Deploy
+        run: op run -- python .github/scripts/fly.py
         env:
           FLY_API_TOKEN: op://Flylab/Fly.io/password
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
