@@ -26,10 +26,10 @@ def endpoints(inventory):
         group = entry["group"]
         name = entry["name"]
         location = entry["cluster"] if entry["type"] == "route" else entry["location"]
-        # Match the location tag Homepage shows on the card.
-        suffix = f" ({location})"
-        if not name.endswith(suffix):
-            name += suffix
+        # Match the location tag Homepage shows on the card; per-node routes carry
+        # `(<cluster>/<node>)` already.
+        if f" ({location}" not in name:
+            name += f" ({location})"
         conditions = ["[RESPONSE_TIME] < 5000", "[STATUS] == any(200, 401)"]
         if urlsplit(url).scheme == "https":
             conditions.insert(0, "[CERTIFICATE_EXPIRATION] > 168h")
