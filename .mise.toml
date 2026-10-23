@@ -1,8 +1,6 @@
 [tools]
 flux2 = "latest"
 flyctl = "latest"
-# CI deploys resolve 1Password secrets through fnox; the shared tools omit it.
-fnox = "latest"
 kubectl = "latest"
 
 # Development
