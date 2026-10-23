@@ -1,4 +1,5 @@
 [tools]
+flux2 = "latest"
 flyctl = "latest"
 kubectl = "latest"
 
