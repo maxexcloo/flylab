@@ -205,14 +205,7 @@ def render(repository, homelab, output):
     for probe in probes:
         if probe["url"] in headers:
             probe["headers"] = headers[probe["url"]]
-    secrets_path = output / "secrets.env"
-    secrets_path.write_text(
-        secrets_path.read_text()
-        + "".join(
-            f"{name}={{{{ {reference} }}}}\n"
-            for name, reference in sorted(secrets.items())
-        )
-    )
+    write_fnox_secrets(output / "fnox.toml", secrets)
     infrastructure = infrastructure_endpoints(
         machines, domain, clusters, domains["services"]
     )
@@ -272,6 +265,31 @@ def source_repository(name):
             + (" (local checkout)" if local_repository else "")
         )
         yield repository
+
+
+def write_fnox_secrets(path, secrets):
+    """Append monitoring header secrets, and providers for their vaults, to fnox.toml."""
+    providers = {
+        provider["vault"]: name
+        for name, provider in tomllib.loads(path.read_text())["providers"].items()
+    }
+    lines = []
+    for name, reference in sorted(secrets.items()):
+        vault, item, field = reference.removeprefix("op://").split("/")
+        if vault not in providers:
+            providers[vault] = re.sub(r"[^a-z0-9]+", "-", vault.lower()).strip("-")
+            lines += [
+                f"\n[providers.{providers[vault]}]",
+                'type = "1password"',
+                f"vault = {json.dumps(vault)}",
+            ]
+        lines += [
+            f"\n[secrets.{name}]",
+            f"provider = {json.dumps(providers[vault])}",
+            f"value = {json.dumps(f'{item}/{field}')}",
+        ]
+    with path.open("a") as file:
+        file.write("".join(f"{line}\n" for line in lines))
 
 
 def main():
