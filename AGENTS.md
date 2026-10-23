@@ -7,7 +7,6 @@
 ## Structure
 
 - Keep the Gatus implementation and its `README.md` in `gatus/`.
-- Treat `$FLYLAB_RENDER_DIRECTORY` (a temporary directory) as ephemeral deployment output.
 
 ## Style
 

@@ -8,8 +8,8 @@ service and infrastructure monitoring derived from Homelab and Kubelab.
 The only credential GitHub Actions stores is `OP_SERVICE_ACCOUNT_TOKEN`. With
 it, the workflow uses fnox to read the Fly deployment token declared in
 `fnox.toml` and the Gatus secrets declared in `gatus/fnox.toml`. Give the service
-account read-only access to the Flylab vault and the application vaults it needs. Keep the service account's
-recovery copy in `Homelab/Connect Token: fly`.
+account read-only access to the Flylab vault and the application vaults it
+needs. Keep the service account's recovery copy in `Homelab/Connect Token: fly`.
 
 ## Deployment
 
