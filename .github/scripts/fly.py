@@ -1,12 +1,8 @@
 import json
 import os
-import re
 import subprocess
-import tempfile
 import tomllib
 from pathlib import Path
-
-REFERENCE_NAME_PATTERN = re.compile(r"[A-Za-z0-9 ._-]+")
 
 
 def fly_json(arguments, app):
@@ -15,52 +11,6 @@ def fly_json(arguments, app):
         text=True,
     )
     return json.loads(result)
-
-
-def fnox_reference_ids(config):
-    """Replace vault and item titles that 1Password secret references cannot express with IDs."""
-    providers = config["providers"]
-    for provider in providers.values():
-        if not REFERENCE_NAME_PATTERN.fullmatch(provider["vault"]):
-            provider["vault"] = op_json(["vault", "get", provider["vault"]])["id"]
-    for secret in config["secrets"].values():
-        item, field = secret["value"].split("/")
-        if not REFERENCE_NAME_PATTERN.fullmatch(field):
-            raise ValueError(f"Unsupported characters in 1Password field: {field}")
-        if not REFERENCE_NAME_PATTERN.fullmatch(item):
-            vault = providers[secret["provider"]]["vault"]
-            items = [
-                candidate["id"]
-                for candidate in op_json(["item", "list", "--vault", vault])
-                if candidate["title"] == item
-            ]
-            if len(items) != 1:
-                raise ValueError(f"Expected one 1Password item titled {item}")
-            secret["value"] = f"{items[0]}/{field}"
-    return config
-
-
-def fnox_toml(config):
-    lines = []
-    for name, provider in sorted(config["providers"].items()):
-        lines += [f"[providers.{name}]"]
-        lines += [
-            f"{key} = {json.dumps(value)}" for key, value in sorted(provider.items())
-        ]
-        lines += [""]
-    lines += ["[secrets]"]
-    lines += [
-        f"{name} = {{ provider = {json.dumps(secret['provider'])}, "
-        f"value = {json.dumps(secret['value'])} }}"
-        for name, secret in sorted(config["secrets"].items())
-    ]
-    return "\n".join(lines) + "\n"
-
-
-def op_json(arguments):
-    return json.loads(
-        subprocess.check_output(["op", *arguments, "--format", "json"], text=True)
-    )
 
 
 def reconcile_certificates(app, desired):
@@ -84,26 +34,23 @@ def reconcile_certificates(app, desired):
 def reconcile_secrets(app, deployment_path):
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Resolve 1Password references only in GitHub Actions")
-    config = tomllib.loads((deployment_path / "fnox.toml").read_text())
-    desired = sorted(config["secrets"])
-    with tempfile.TemporaryDirectory() as directory:
-        config_path = Path(directory) / "fnox.toml"
-        config_path.write_text(fnox_toml(fnox_reference_ids(config)))
-        # fnox also loads the user's global configuration, so keep only the declared names.
-        values = json.loads(
-            subprocess.check_output(
-                [
-                    "fnox",
-                    "--config",
-                    str(config_path),
-                    "export",
-                    "--all",
-                    "--format",
-                    "json",
-                ],
-                text=True,
-            )
-        )["secrets"]
+    config_path = deployment_path / "fnox.toml"
+    desired = sorted(tomllib.loads(config_path.read_text())["secrets"])
+    # fnox also loads the user's global configuration, so keep only the declared names.
+    values = json.loads(
+        subprocess.check_output(
+            [
+                "fnox",
+                "--config",
+                str(config_path),
+                "export",
+                "--all",
+                "--format",
+                "json",
+            ],
+            text=True,
+        )
+    )["secrets"]
     missing = [name for name in desired if not values.get(name)]
     if missing:
         raise ValueError(f"Unresolved secrets: {', '.join(missing)}")
