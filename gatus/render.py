@@ -144,14 +144,18 @@ def provider_endpoints(providers, domain):
     probes = []
     for provider in providers.values():
         name = provider["name"]
-        if "conditions" in provider:
+        if provider.get("monitoring", True):
             probes.append(
                 {
                     "group": "Providers",
                     "name": name,
                     "url": provider["url"],
                     "alerts": [{"type": "email"}],
-                    "conditions": provider["conditions"],
+                    # Provider consoles may ask for sign-in; any answer means they are up.
+                    "conditions": [
+                        "[STATUS] == any(200, 401, 403)",
+                        "[RESPONSE_TIME] < 5000",
+                    ],
                 }
             )
         if "dns" in provider:
@@ -166,7 +170,11 @@ def provider_endpoints(providers, domain):
                         "query-type": resolver["query-type"],
                     },
                     "alerts": [{"type": "email"}],
-                    "conditions": resolver["conditions"],
+                    "conditions": [
+                        "[CONNECTED] == true",
+                        "[DNS_RCODE] == NOERROR",
+                        "[RESPONSE_TIME] < 5000",
+                    ],
                 }
             )
     return sorted(probes, key=lambda probe: probe["name"].casefold())
