@@ -39,7 +39,7 @@ jobs:
         uses: maxexcloo/dotfiles/.github/actions/mise@main
         with:
           project-tools: true
-          tools: 1password-cli actionlint jq node@24 npm:renovate oxfmt python ruff shellcheck uv yq
+          tools: 1password-cli actionlint fnox jq node@24 npm:renovate oxfmt python ruff shellcheck uv yq
       - name: Run Checks
         run: mise run check
       - name: Render
