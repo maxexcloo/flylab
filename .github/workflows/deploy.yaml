@@ -49,7 +49,6 @@ jobs:
           KUBELAB_REVISION: ${{ inputs.kubelab_revision }}
       - if: github.event_name != 'pull_request'
         name: Deploy
-        run: op run -- python .github/scripts/fly.py
+        run: fnox exec -- python .github/scripts/fly.py
         env:
-          FLY_API_TOKEN: op://Flylab/Fly.io/password
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}

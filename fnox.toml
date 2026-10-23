@@ -1,0 +1,6 @@
+[providers.flylab]
+type = "1password"
+vault = "Flylab"
+
+[secrets]
+FLY_API_TOKEN = { provider = "flylab", value = "Fly.io/password" }

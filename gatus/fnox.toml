@@ -1,0 +1,7 @@
+[providers.flylab]
+type = "1password"
+vault = "Flylab"
+
+[secrets]
+RESEND_API_KEY = { provider = "flylab", value = "Resend/password" }
+TAILSCALE_OAUTH_CLIENT_SECRET = { provider = "flylab", value = "Tailscale OAuth Client/password" }
