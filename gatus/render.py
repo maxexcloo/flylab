@@ -55,13 +55,7 @@ def endpoints(inventory):
     ]
 
 
-def infrastructure_endpoints(machines, domain, clusters, services_domain):
-    public_hosts = {
-        cluster.get(
-            "public_node", cluster["api_node"]
-        ): f"public.{name}.{services_domain}"
-        for name, cluster in clusters.items()
-    }
+def infrastructure_endpoints(machines, domain):
     probes = []
     for network, name, hostname, host, machine in monitored_machines(machines, domain):
         if machine.get("type") is None:
@@ -69,11 +63,13 @@ def infrastructure_endpoints(machines, domain, clusters, services_domain):
         targets = {}
         if machine.get("tailscale", {}).get("enabled", True):
             targets["Internal"] = host
-        address = machine.get("public_ipv4") or machine.get("public_ipv6")
-        if address:
-            targets["External"] = address
-        elif machine.get("oci", {}).get("assign_public_ip") and name in public_hosts:
-            targets["External"] = public_hosts[name]
+        # Homelab publishes each public address as public.<machine FQDN>.
+        if (
+            "public_ipv4" in machine
+            or "public_ipv6" in machine
+            or machine.get("oci", {}).get("assign_public_ip")
+        ):
+            targets["External"] = f"public.{host}"
         for scope, target in targets.items():
             probes.append(
                 {
@@ -193,7 +189,6 @@ def render(repository, homelab, output):
     machines = yaml.safe_load((homelab / "data/machines.yaml").read_text())["machines"]
     domains = yaml.safe_load((homelab / "data/domains.yaml").read_text())["domains"]
     domain = domains["infrastructure"]
-    clusters = yaml.safe_load((homelab / "data/clusters.yaml").read_text())["clusters"]
     providers = yaml.safe_load((homelab / "data/providers.yaml").read_text())[
         "providers"
     ]
@@ -214,9 +209,7 @@ def render(repository, homelab, output):
         if probe["url"] in headers:
             probe["headers"] = headers[probe["url"]]
     write_fnox_secrets(output / "fnox.toml", secrets)
-    infrastructure = infrastructure_endpoints(
-        machines, domain, clusters, domains["services"]
-    )
+    infrastructure = infrastructure_endpoints(machines, domain)
     providers = provider_endpoints(providers, domain)
     config_directory = output / "app/config"
     (config_directory / "services.yaml").write_text(
