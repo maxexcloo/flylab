@@ -15,9 +15,12 @@ ui:
   # Lay endpoint cards out as list rows; the classes are Gatus's own hooks for custom CSS.
   custom-css: |
     .grid:has(> .endpoint) { display: flex; flex-direction: column; gap: 0; }
-    .grid > .endpoint { border-radius: 0; border-width: 0 0 1px; box-shadow: none; transform: none; }
+    .grid > .endpoint { border-radius: 0; border-width: 0 0 1px; box-shadow: none; }
+    .grid > .endpoint:hover { box-shadow: none; transform: none; }
     .grid > .endpoint:last-child { border-bottom-width: 0; }
     .endpoint .endpoint-header { padding: 0.5rem 1rem 0; }
+    .endpoint .endpoint-header > div { align-items: center; }
+    .endpoint-group-content .endpoint-header .text-muted-foreground > :nth-child(-n+2) { display: none; }
     .endpoint .endpoint-content { padding: 0.25rem 1rem 0.5rem; }
     .endpoint .endpoint-content .rounded-sm { height: 1rem; }
     .endpoint .endpoint-content .mt-1 { display: none; }
