@@ -65,8 +65,8 @@ def infrastructure_endpoints(machines, domain):
             targets["Internal"] = host
         # Homelab publishes each public address as public.<machine FQDN>.
         if (
-            "public_ipv4" in machine
-            or "public_ipv6" in machine
+            machine.get("public_ipv4")
+            or machine.get("public_ipv6")
             or machine.get("oci", {}).get("assign_public_ip")
         ):
             targets["External"] = f"public.{host}"
