@@ -32,7 +32,6 @@ ui:
     .endpoint-group-content:has(.endpoint) { padding: 0; }
   dashboard-heading: Gatus
   dashboard-subheading: Health Monitoring & Status Page
-  default-filter-by: failing
   default-sort-by: name
   description: Health Monitoring & Status Page
   header: Gatus
