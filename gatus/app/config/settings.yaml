@@ -33,7 +33,7 @@ ui:
   dashboard-heading: Gatus
   dashboard-subheading: Health Monitoring & Status Page
   default-filter-by: failing
-  default-sort-by: group
+  default-sort-by: name
   description: Health Monitoring & Status Page
   header: Gatus
   title: Gatus
