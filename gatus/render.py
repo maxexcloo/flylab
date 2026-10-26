@@ -57,7 +57,7 @@ def endpoints(inventory):
 
 def infrastructure_endpoints(machines, domain):
     probes = []
-    for network, name, hostname, host, machine in monitored_machines(machines, domain):
+    for network, _, hostname, host, machine in monitored_machines(machines, domain):
         if machine.get("type") is None:
             continue
         targets = {}
