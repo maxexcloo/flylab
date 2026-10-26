@@ -14,8 +14,8 @@ startup script.
   Kubelab's `scripts/render_service_inventory.sh`.
 - Homelab machine services opt in with `services.<name>.monitoring: true` in
   `data/machines.yaml`; typed machines get ICMP checks.
-- Homelab `data/providers.yaml` entries with `conditions` or `dns` get provider
-  probes.
+- Homelab `data/providers.yaml` entries get provider probes unless they set
+  `monitoring: false`, plus DNS probes when they declare `dns`.
 
 Names and groups match Homepage. `settings.yaml` holds mail alerting and UI
 settings.
