@@ -176,11 +176,11 @@ def provider_endpoints(providers, domain):
     return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 
-def render(repository, homelab, output):
+def render(kubelab, homelab, output):
     inventory = json.loads(
         subprocess.check_output(
             ["bash", "scripts/render_service_inventory.sh"],
-            cwd=repository,
+            cwd=kubelab,
             env=dict(os.environ, HOMELAB_DIRECTORY=str(homelab)),
             text=True,
         )
