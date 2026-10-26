@@ -17,6 +17,10 @@ method = "GET"
 path = "/health"
 timeout = "5s"
 
+[[mounts]]
+destination = "/data"
+source = "gatus_data"
+
 [[vm]]
 cpu_kind = "shared"
 cpus = 1

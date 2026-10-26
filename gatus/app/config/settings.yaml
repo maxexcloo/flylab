@@ -11,6 +11,9 @@ alerting:
       failure-threshold: 5
       send-on-resolved: true
       success-threshold: 5
+storage:
+  path: /data/gatus.db
+  type: sqlite
 ui:
   # Lay endpoint cards out as list rows; the classes are Gatus's own hooks for custom CSS.
   custom-css: |

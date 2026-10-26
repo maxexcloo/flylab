@@ -70,9 +70,31 @@ def reconcile_secrets(app, deployment_path):
     )
 
 
+def reconcile_volumes(app, config):
+    # Deploy only creates volumes for new machines, so create one for each mount first.
+    current = {volume["name"] for volume in fly_json(["volumes", "list"], app)}
+    for mount in config.get("mounts", []):
+        if mount["source"] not in current:
+            subprocess.run(
+                [
+                    "flyctl",
+                    "volumes",
+                    "create",
+                    mount["source"],
+                    "--app",
+                    app,
+                    "--region",
+                    config["primary_region"],
+                    "--yes",
+                ],
+                check=True,
+            )
+
+
 def main():
     deployment_path = Path(os.environ["FLYLAB_RENDER_DIRECTORY"])
-    app = tomllib.loads((deployment_path / "fly.toml").read_text())["app"]
+    config = tomllib.loads((deployment_path / "fly.toml").read_text())
+    app = config["app"]
     deployment = tomllib.loads((deployment_path / "deployment.toml").read_text())
 
     apps = json.loads(
@@ -83,6 +105,7 @@ def main():
 
     reconcile_certificates(app, deployment["certificates"])
     reconcile_secrets(app, deployment_path)
+    reconcile_volumes(app, config)
     # Deploy waits for native health checks; --ha=false keeps a new app to one machine.
     subprocess.run(
         [
