@@ -17,8 +17,10 @@ startup script.
 - Homelab `data/providers.yaml` entries get provider probes unless they set
   `monitoring: false`, plus DNS probes when they declare `dns`.
 
-Names and groups match Homepage. `settings.yaml` holds mail alerting and UI
-settings.
+Names and groups match Homepage. `settings.yaml` holds mail alerting, storage
+and UI settings. Gatus keeps its history in SQLite on the `gatus_data` Fly
+volume, which Flylab creates before deploying. The volume pins Gatus to one
+machine.
 
 ## Credentials
 
