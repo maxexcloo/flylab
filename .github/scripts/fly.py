@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import subprocess
@@ -91,6 +92,15 @@ def reconcile_volumes(app, config):
             )
 
 
+def rendered_digest(deployment_path):
+    digest = hashlib.sha256()
+    for path in sorted(deployment_path.rglob("*")):
+        if path.is_file():
+            digest.update(str(path.relative_to(deployment_path)).encode() + b"\0")
+            digest.update(path.read_bytes() + b"\0")
+    return digest.hexdigest()
+
+
 def main():
     deployment_path = Path(os.environ["FLYLAB_RENDER_DIRECTORY"])
     config = tomllib.loads((deployment_path / "fly.toml").read_text())
@@ -102,6 +112,15 @@ def main():
     )
     if not any(candidate["Name"] == app for candidate in apps):
         subprocess.run(["flyctl", "apps", "create", app], check=True)
+
+    digest = rendered_digest(deployment_path)
+    # Homelab and Kubelab dispatch after every push; skip runs that render nothing new.
+    if os.environ["FLYLAB_SKIP_UNCHANGED"] == "true" and {
+        machine["config"]["env"].get("FLYLAB_RENDER_DIGEST")
+        for machine in fly_json(["machines", "list"], app)
+    } == {digest}:
+        print(f"Rendered configuration {digest} is already deployed")
+        return
 
     reconcile_certificates(app, deployment["certificates"])
     reconcile_secrets(app, deployment_path)
@@ -116,6 +135,8 @@ def main():
             app,
             "--config",
             str(deployment_path / "fly.toml"),
+            "--env",
+            f"FLYLAB_RENDER_DIGEST={digest}",
             "--ha=false",
         ],
         check=True,

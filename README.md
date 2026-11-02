@@ -19,6 +19,11 @@ reconciles certificates from `gatus/deployment.toml` and secrets from the
 rendered `fnox.toml`, then runs `flyctl deploy`. Secret values go straight to Fly
 over standard input, and Fly secrets not declared there are removed.
 
+Homelab and Kubelab dispatch the workflow with a revision after each push; those
+runs skip deploying when the rendered output matches the deployed digest. Pushes
+and manual runs without a revision always deploy, so run the workflow manually
+after rotating a secret.
+
 ## Development
 
 Install the [shared Mise configuration](https://github.com/maxexcloo/dotfiles#shared-tools--tasks)
