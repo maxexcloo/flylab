@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["pyyaml>=6.0.3"]
+# dependencies = ["pyyaml"]
 # ///
 import argparse
 import hashlib
@@ -211,16 +211,14 @@ def render(kubelab, homelab, output):
     write_fnox_secrets(output / "fnox.toml", secrets)
     infrastructure = infrastructure_endpoints(machines, domain)
     providers = provider_endpoints(providers, domain)
-    config_directory = output / "app/config"
-    (config_directory / "services.yaml").write_text(
-        yaml.safe_dump({"endpoints": probes}, sort_keys=False)
-    )
-    (config_directory / "infrastructure.yaml").write_text(
-        yaml.safe_dump({"endpoints": infrastructure}, sort_keys=False)
-    )
-    (config_directory / "providers.yaml").write_text(
-        yaml.safe_dump({"endpoints": providers}, sort_keys=False)
-    )
+    for name, entries in {
+        "infrastructure": infrastructure,
+        "providers": providers,
+        "services": probes,
+    }.items():
+        (output / f"app/config/{name}.yaml").write_text(
+            yaml.safe_dump({"endpoints": entries}, sort_keys=False)
+        )
     print(
         f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure "
         f"and {len(providers)} provider probes"
@@ -231,8 +229,6 @@ def render(kubelab, homelab, output):
 def source_repository(name):
     local_repository = os.environ.get(f"{name.upper()}_DIRECTORY")
     revision = os.environ.get(f"{name.upper()}_REVISION", "")
-    if revision and not re.fullmatch(r"[0-9a-f]{40}", revision):
-        raise ValueError(f"{name.upper()}_REVISION must be a full commit SHA")
     if local_repository and revision:
         raise ValueError(f"Choose {name.upper()}_DIRECTORY or {name.upper()}_REVISION")
     with tempfile.TemporaryDirectory(prefix=f"gatus-{name}-") as directory:
