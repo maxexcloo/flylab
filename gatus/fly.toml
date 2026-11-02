@@ -1,9 +1,6 @@
 app = "excloo-gatus"
 primary_region = "syd"
 
-[build]
-dockerfile = "Dockerfile"
-
 [http_service]
 auto_stop_machines = "off"
 force_https = true
@@ -11,9 +8,8 @@ internal_port = 8080
 min_machines_running = 1
 
 [[http_service.checks]]
-grace_period = "90s"
+grace_period = "60s"
 interval = "30s"
-method = "GET"
 path = "/health"
 timeout = "5s"
 

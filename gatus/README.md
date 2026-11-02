@@ -34,7 +34,7 @@ the Flylab vault, both managed by Homelab. Tailscale runs in the container so
 Gatus can reach private services, registering an ephemeral `tag:fly` client on
 each start.
 
-Homelab and Kubelab dispatch this workflow after each validated push using the
+Homelab and Kubelab dispatch `deploy.yaml` after each validated push using the
 Actions secret `HOMELAB_FLY_DEPLOY_TOKEN` (reference copy at
 `op://Homelab/GitHub Actions/homelab-fly-deploy-token`; update both repositories
 when rotating it). It only needs Actions write access to `maxexcloo/flylab`.

@@ -73,7 +73,7 @@ def reconcile_secrets(app, deployment_path):
 def reconcile_volumes(app, config):
     # Deploy only creates volumes for new machines, so create one for each mount first.
     current = {volume["name"] for volume in fly_json(["volumes", "list"], app)}
-    for mount in config.get("mounts", []):
+    for mount in config["mounts"]:
         if mount["source"] not in current:
             subprocess.run(
                 [
