@@ -51,4 +51,5 @@ jobs:
         name: Deploy
         run: fnox exec -- python .github/scripts/fly.py
         env:
+          FLYLAB_SKIP_UNCHANGED: ${{ github.event_name == 'workflow_dispatch' && (inputs.homelab_revision || inputs.kubelab_revision) != '' }}
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
