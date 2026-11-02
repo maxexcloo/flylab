@@ -14,9 +14,6 @@ trap 'rm -fr -- "$FLYLAB_RENDER_DIRECTORY"' EXIT
 mise run render
 '''
 
-[tasks.fmt]
-depends = ["fmt:mise", "fmt:oxfmt", "fmt:python"]
-
 [tasks.render]
 description = "Render Gatus Without Resolving Secrets Or Deploying"
 run = '''
