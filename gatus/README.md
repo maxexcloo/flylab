@@ -27,7 +27,8 @@ machine.
 Kubelab routes can declare monitoring headers with
 `monitoring.excloo.dev/headers`. Kubelab resolves each Secret reference to a
 1Password reference; rendering adds it to `fnox.toml` under a hashed name, and
-Flylab imports it as a Fly secret.
+Flylab imports it as a Fly secret. Routes behind a Kubelab Cloudflare Access application
+also send the `Cloudflare Access Service Token` item, which Homelab manages.
 
 `gatus/fnox.toml` references the `Resend` and `Tailscale OAuth Client` items in
 the Flylab vault, both managed by Homelab. Tailscale runs in the container so
