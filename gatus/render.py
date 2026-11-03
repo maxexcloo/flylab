@@ -118,11 +118,22 @@ def monitored_machines(machines, domain):
                 yield network, name, hostname, f"{hostname}.{network}.{domain}", machine
 
 
+# Gatus reaches public routes through Cloudflare, so Access-protected ones need
+# Homelab's monitoring service token.
+CLOUDFLARE_ACCESS_HEADERS = {
+    "cf-access-client-id": "op://Flylab/Cloudflare Access Service Token/username",
+    "cf-access-client-secret": "op://Flylab/Cloudflare Access Service Token/password",
+}
+
+
 def monitoring_credentials(inventory):
     headers = {}
     secrets = {}
     for entry in inventory:
-        for header, reference in entry["headers"].items():
+        entry_headers = dict(entry["headers"])
+        if entry.get("cloudflareAccess"):
+            entry_headers.update(CLOUDFLARE_ACCESS_HEADERS)
+        for header, reference in entry_headers.items():
             name = (
                 "GATUS_HEADER_"
                 + hashlib.sha256(reference.encode()).hexdigest()[:16].upper()
@@ -208,6 +219,9 @@ def render(kubelab, homelab, output):
     for probe in probes:
         if probe["url"] in headers:
             probe["headers"] = headers[probe["url"]]
+            # A rejected token redirects to the Access login page, which would pass.
+            if "cf-access-client-id" in probe["headers"]:
+                probe["client"] = {"ignore-redirect": True}
     write_fnox_secrets(output / "fnox.toml", secrets)
     infrastructure = infrastructure_endpoints(machines, domain)
     providers = provider_endpoints(providers, domain)
