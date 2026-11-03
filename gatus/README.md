@@ -35,9 +35,8 @@ Gatus can reach private services, registering an ephemeral `tag:fly` client on
 each start.
 
 Homelab and Kubelab dispatch `deploy.yaml` after each validated push using the
-Actions secret `HOMELAB_FLY_DEPLOY_TOKEN` (reference copy at
-`op://Homelab/GitHub Actions/homelab-fly-deploy-token`; update both repositories
-when rotating it). It only needs Actions write access to `maxexcloo/flylab`.
+Actions secret `FLYLAB_DISPATCH_TOKEN`, a fine-grained token with only Actions
+write access to `maxexcloo/flylab`; update both repositories when rotating it.
 
 ## Rendering
 
