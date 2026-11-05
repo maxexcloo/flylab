@@ -8,9 +8,9 @@ alerting:
     username: resend
     default-alert:
       description: Gatus Check Failed
-      failure-threshold: 5
+      failure-threshold: 10
       send-on-resolved: true
-      success-threshold: 5
+      success-threshold: 10
 storage:
   path: /data/gatus.db
   type: sqlite

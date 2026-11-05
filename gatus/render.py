@@ -30,7 +30,7 @@ def endpoints(inventory):
         # `(<cluster>/<node>)` already.
         if f" ({location}" not in name:
             name += f" ({location})"
-        conditions = ["[RESPONSE_TIME] < 5000", "[STATUS] == any(200, 401)"]
+        conditions = ["[RESPONSE_TIME] < 10000", "[STATUS] == any(200, 401)"]
         if urlsplit(url).scheme == "https":
             conditions.insert(0, "[CERTIFICATE_EXPIRATION] > 168h")
         probe = {
@@ -78,7 +78,7 @@ def infrastructure_endpoints(machines, domain):
                     + (" (External)" if scope == "External" else ""),
                     "url": f"icmp://{target}",
                     "alerts": [{"type": "email"}],
-                    "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
+                    "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 10000"],
                 }
             )
     if not probes:
@@ -160,8 +160,8 @@ def provider_endpoints(providers, domain):
                     "alerts": [{"type": "email"}],
                     # Provider consoles may ask for sign-in; any answer means they are up.
                     "conditions": [
-                        "[STATUS] == any(200, 401, 403)",
-                        "[RESPONSE_TIME] < 5000",
+                        "[STATUS] == any(200, 401, 403, 429)",
+                        "[RESPONSE_TIME] < 10000",
                     ],
                 }
             )
@@ -180,11 +180,50 @@ def provider_endpoints(providers, domain):
                     "conditions": [
                         "[CONNECTED] == true",
                         "[DNS_RCODE] == NOERROR",
-                        "[RESPONSE_TIME] < 5000",
+                        "[RESPONSE_TIME] < 10000",
                     ],
                 }
             )
     return sorted(probes, key=lambda probe: probe["name"].casefold())
+
+
+def certificate_endpoints(certificate_inventory, machines, domain, probes):
+    """Probe certificates no service probe reaches."""
+    hosts = {
+        entry["hostname"]
+        for entry in certificate_inventory
+        if entry["type"] == "certificate"
+    }
+    for _, _, _, host, machine in monitored_machines(machines, domain):
+        if not machine.get("cloudflare", {}).get("acme"):
+            continue
+        # ACME machines serve their certificate on each HTTPS service.
+        for service in machine.get("services", {}).values():
+            if service.get("scheme") != "https" or service.get("monitoring", False):
+                continue
+            if service.get("hostname", host) != host:
+                continue
+            port = service["port"]
+            hosts.add(host if port == 443 else f"{host}:{port}")
+    monitored = {probe["url"] for probe in probes}
+    certificates = []
+    for host in hosts:
+        url = f"https://{host}"
+        if url in monitored:
+            continue
+        certificates.append(
+            {
+                "group": "Certificates",
+                "name": f"Certificate: {host}",
+                "url": url,
+                "alerts": [{"type": "email"}],
+                "conditions": [
+                    "[CERTIFICATE_EXPIRATION] > 168h",
+                    "[STATUS] == any(200, 301, 302, 401, 403)",
+                ],
+            }
+        )
+    return sorted(certificates, key=lambda probe: probe["name"].casefold())
 
 
 def render(kubelab, homelab, output):
@@ -196,6 +235,10 @@ def render(kubelab, homelab, output):
             text=True,
         )
     )
+    certificate_inventory = [
+        entry for entry in inventory if entry["type"] == "certificate"
+    ]
+    inventory = [entry for entry in inventory if entry["type"] != "certificate"]
     headers, secrets = monitoring_credentials(inventory)
     machines = yaml.safe_load((homelab / "data/machines.yaml").read_text())["machines"]
     domains = yaml.safe_load((homelab / "data/domains.yaml").read_text())["domains"]
@@ -225,7 +268,11 @@ def render(kubelab, homelab, output):
     write_fnox_secrets(output / "fnox.toml", secrets)
     infrastructure = infrastructure_endpoints(machines, domain)
     providers = provider_endpoints(providers, domain)
+    certificates = certificate_endpoints(
+        certificate_inventory, machines, domain, probes + infrastructure + providers
+    )
     for name, entries in {
+        "certificates": certificates,
         "infrastructure": infrastructure,
         "providers": providers,
         "services": probes,
@@ -234,8 +281,8 @@ def render(kubelab, homelab, output):
             yaml.safe_dump({"endpoints": entries}, sort_keys=False)
         )
     print(
-        f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure "
-        f"and {len(providers)} provider probes"
+        f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure, "
+        f"{len(providers)} provider and {len(certificates)} certificate probes"
     )
 
 
