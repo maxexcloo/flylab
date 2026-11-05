@@ -30,9 +30,10 @@ alerts once. Response times must stay under 10 seconds. Provider probes also
 accept `429`, so rate limits do not alert.
 
 Every HTTPS probe checks certificate expiry with
-`[CERTIFICATE_EXPIRATION] > 168h`. Add hosts to `certificate-hosts` in
-`deployment.toml` only when no service probe reaches their certificate;
-`render.py` writes them to `certificates.yaml` as `Certificate: <host>` probes.
+`[CERTIFICATE_EXPIRATION] > 168h`. `certificates.yaml` adds `Certificate: <host>`
+probes for certificates no service probe reaches: concrete dnsNames from
+Kubelab's cert-manager `Certificate` resources, and HTTPS services on ACME
+machines in Homelab that do not opt into monitoring.
 
 ## Credentials
 

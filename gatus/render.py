@@ -187,11 +187,27 @@ def provider_endpoints(providers, domain):
     return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 
-def certificate_endpoints(deployment, probes):
-    """Probe certificates no service probe reaches, skipping monitored URLs."""
+def certificate_endpoints(certificate_inventory, machines, domain, probes):
+    """Probe certificates no service probe reaches."""
+    hosts = {
+        entry["hostname"]
+        for entry in certificate_inventory
+        if entry["type"] == "certificate"
+    }
+    for _, _, _, host, machine in monitored_machines(machines, domain):
+        if not machine.get("cloudflare", {}).get("acme"):
+            continue
+        # ACME machines serve their certificate on each HTTPS service.
+        for service in machine.get("services", {}).values():
+            if service.get("scheme") != "https" or service.get("monitoring", False):
+                continue
+            if service.get("hostname", host) != host:
+                continue
+            port = service["port"]
+            hosts.add(host if port == 443 else f"{host}:{port}")
     monitored = {probe["url"] for probe in probes}
     certificates = []
-    for host in deployment.get("certificate-hosts", []):
+    for host in sorted(hosts):
         url = f"https://{host}"
         if url in monitored:
             continue
@@ -219,6 +235,10 @@ def render(kubelab, homelab, output):
             text=True,
         )
     )
+    certificate_inventory = [
+        entry for entry in inventory if entry["type"] == "certificate"
+    ]
+    inventory = [entry for entry in inventory if entry["type"] != "certificate"]
     headers, secrets = monitoring_credentials(inventory)
     machines = yaml.safe_load((homelab / "data/machines.yaml").read_text())["machines"]
     domains = yaml.safe_load((homelab / "data/domains.yaml").read_text())["domains"]
@@ -249,7 +269,7 @@ def render(kubelab, homelab, output):
     infrastructure = infrastructure_endpoints(machines, domain)
     providers = provider_endpoints(providers, domain)
     certificates = certificate_endpoints(
-        deployment, probes + infrastructure + providers
+        certificate_inventory, machines, domain, probes + infrastructure + providers
     )
     for name, entries in {
         "certificates": certificates,
