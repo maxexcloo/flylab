@@ -16,10 +16,13 @@ startup script.
   `data/machines.yaml`; typed machines get ICMP checks.
 - Homelab `data/providers.yaml` entries get provider probes unless they set
   `monitoring: false`, plus DNS probes when they declare `dns`.
+- Certificates no service probe reaches get a `Certificate: <host>` probe, from
+  concrete dnsNames in Kubelab's cert-manager `Certificate` resources and from
+  HTTPS services on Homelab ACME machines that do not opt into monitoring.
 
-Names and groups match Homepage. `settings.yaml` holds mail alerting, storage
-and UI settings. Gatus keeps its history in SQLite on the `gatus_data` Fly
-volume, which Flylab creates before deploying. The volume pins Gatus to one
+Service names and groups match Homepage. `settings.yaml` holds mail alerting,
+storage and UI settings. Gatus keeps its history in SQLite on the `gatus_data`
+Fly volume, which Flylab creates before deploying. The volume pins Gatus to one
 machine.
 
 ## Alerting
@@ -30,10 +33,8 @@ alerts once. Response times must stay under 10 seconds. Provider probes also
 accept `429`, so rate limits do not alert.
 
 Every HTTPS probe checks certificate expiry with
-`[CERTIFICATE_EXPIRATION] > 168h`. `certificates.yaml` adds `Certificate: <host>`
-probes for certificates no service probe reaches: concrete dnsNames from
-Kubelab's cert-manager `Certificate` resources, and HTTPS services on ACME
-machines in Homelab that do not opt into monitoring.
+`[CERTIFICATE_EXPIRATION] > 168h`, including the certificate-only probes in
+`certificates.yaml`.
 
 ## Credentials
 
