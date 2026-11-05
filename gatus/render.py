@@ -30,7 +30,7 @@ def endpoints(inventory):
         # `(<cluster>/<node>)` already.
         if f" ({location}" not in name:
             name += f" ({location})"
-        conditions = ["[RESPONSE_TIME] < 5000", "[STATUS] == any(200, 401)"]
+        conditions = ["[RESPONSE_TIME] < 10000", "[STATUS] == any(200, 401)"]
         if urlsplit(url).scheme == "https":
             conditions.insert(0, "[CERTIFICATE_EXPIRATION] > 168h")
         probe = {
@@ -78,7 +78,7 @@ def infrastructure_endpoints(machines, domain):
                     + (" (External)" if scope == "External" else ""),
                     "url": f"icmp://{target}",
                     "alerts": [{"type": "email"}],
-                    "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 5000"],
+                    "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 10000"],
                 }
             )
     if not probes:
@@ -160,8 +160,8 @@ def provider_endpoints(providers, domain):
                     "alerts": [{"type": "email"}],
                     # Provider consoles may ask for sign-in; any answer means they are up.
                     "conditions": [
-                        "[STATUS] == any(200, 401, 403)",
-                        "[RESPONSE_TIME] < 5000",
+                        "[STATUS] == any(200, 401, 403, 429)",
+                        "[RESPONSE_TIME] < 10000",
                     ],
                 }
             )
@@ -180,11 +180,34 @@ def provider_endpoints(providers, domain):
                     "conditions": [
                         "[CONNECTED] == true",
                         "[DNS_RCODE] == NOERROR",
-                        "[RESPONSE_TIME] < 5000",
+                        "[RESPONSE_TIME] < 10000",
                     ],
                 }
             )
     return sorted(probes, key=lambda probe: probe["name"].casefold())
+
+
+def certificate_endpoints(deployment, probes):
+    """Probe certificates no service probe reaches, skipping monitored URLs."""
+    monitored = {probe["url"] for probe in probes}
+    certificates = []
+    for host in deployment.get("certificate-hosts", []):
+        url = f"https://{host}"
+        if url in monitored:
+            continue
+        certificates.append(
+            {
+                "group": "Certificates",
+                "name": f"Certificate: {host}",
+                "url": url,
+                "alerts": [{"type": "email"}],
+                "conditions": [
+                    "[CERTIFICATE_EXPIRATION] > 168h",
+                    "[STATUS] == any(200, 301, 302, 401, 403)",
+                ],
+            }
+        )
+    return sorted(certificates, key=lambda probe: probe["name"].casefold())
 
 
 def render(kubelab, homelab, output):
@@ -225,7 +248,11 @@ def render(kubelab, homelab, output):
     write_fnox_secrets(output / "fnox.toml", secrets)
     infrastructure = infrastructure_endpoints(machines, domain)
     providers = provider_endpoints(providers, domain)
+    certificates = certificate_endpoints(
+        deployment, probes + infrastructure + providers
+    )
     for name, entries in {
+        "certificates": certificates,
         "infrastructure": infrastructure,
         "providers": providers,
         "services": probes,
@@ -234,8 +261,8 @@ def render(kubelab, homelab, output):
             yaml.safe_dump({"endpoints": entries}, sort_keys=False)
         )
     print(
-        f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure "
-        f"and {len(providers)} provider probes"
+        f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure, "
+        f"{len(providers)} provider and {len(certificates)} certificate probes"
     )
 
 

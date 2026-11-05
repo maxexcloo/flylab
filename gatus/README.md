@@ -7,8 +7,8 @@ startup script.
 
 ## Inventory
 
-`render.py` generates `services.yaml`, `infrastructure.yaml` and
-`providers.yaml` in `app/config/`:
+`render.py` generates `services.yaml`, `infrastructure.yaml`,
+`providers.yaml` and `certificates.yaml` in `app/config/`:
 
 - Kubelab routes opt in with `monitoring.excloo.dev/enabled: "true"`, through
   Kubelab's `scripts/render_service_inventory.sh`.
@@ -21,6 +21,18 @@ Names and groups match Homepage. `settings.yaml` holds mail alerting, storage
 and UI settings. Gatus keeps its history in SQLite on the `gatus_data` Fly
 volume, which Flylab creates before deploying. The volume pins Gatus to one
 machine.
+
+## Alerting
+
+`settings.yaml` emails after 10 consecutive failures, clears after 10
+consecutive successes, and repeats at most hourly while a check stays down.
+Response times must stay under 10 seconds. Provider probes also accept `429`, so
+rate limits do not alert.
+
+Every HTTPS probe checks certificate expiry with
+`[CERTIFICATE_EXPIRATION] > 168h`. Add hosts to `certificate-hosts` in
+`deployment.toml` only when no service probe reaches their certificate;
+`render.py` writes them to `certificates.yaml` as `Certificate: <host>` probes.
 
 ## Credentials
 

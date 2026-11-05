@@ -1,1 +1,5 @@
 certificates = ["status.excloo.com"]
+
+# All HTTPS probes already check certificate expiry. List hosts here only when
+# no service probe reaches their certificate.
+certificate-hosts = ["www.reddit.excloo.com", "kimbap.mbk.excloo.net:9000"]
