@@ -24,10 +24,10 @@ machine.
 
 ## Alerting
 
-`settings.yaml` emails after 10 consecutive failures, clears after 10
-consecutive successes, and repeats at most hourly while a check stays down.
-Response times must stay under 10 seconds. Provider probes also accept `429`, so
-rate limits do not alert.
+`settings.yaml` emails after 10 consecutive failures and clears after 10
+consecutive successes. Reminders stay disabled, so a check that stays down
+alerts once. Response times must stay under 10 seconds. Provider probes also
+accept `429`, so rate limits do not alert.
 
 Every HTTPS probe checks certificate expiry with
 `[CERTIFICATE_EXPIRATION] > 168h`. Add hosts to `certificate-hosts` in

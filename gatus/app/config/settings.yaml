@@ -9,7 +9,6 @@ alerting:
     default-alert:
       description: Gatus Check Failed
       failure-threshold: 10
-      minimum-reminder-interval: 1h
       send-on-resolved: true
       success-threshold: 10
 storage:
