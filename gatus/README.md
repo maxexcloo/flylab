@@ -7,8 +7,9 @@ startup script.
 
 ## Inventory
 
-`render.py` generates `services.yaml`, `infrastructure.yaml`,
-`providers.yaml` and `certificates.yaml` in `app/config/`:
+`render.py` writes `certificates.yaml`, `infrastructure.yaml`, `providers.yaml`
+and `services.yaml` to `app/config/`, where Gatus merges every `*.yaml`. Probes
+come from:
 
 - Kubelab routes opt in with `monitoring.excloo.dev/enabled: "true"`, through
   Kubelab's `scripts/render_service_inventory.sh`.

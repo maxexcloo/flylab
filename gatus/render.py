@@ -207,7 +207,7 @@ def certificate_endpoints(certificate_inventory, machines, domain, probes):
             hosts.add(host if port == 443 else f"{host}:{port}")
     monitored = {probe["url"] for probe in probes}
     certificates = []
-    for host in sorted(hosts):
+    for host in hosts:
         url = f"https://{host}"
         if url in monitored:
             continue
