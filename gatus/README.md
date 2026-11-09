@@ -47,8 +47,8 @@ also send the `Cloudflare Access Service Token` item, which Homelab manages.
 
 `gatus/fnox.toml` references the `Resend` and `Tailscale OAuth Client` items in
 the Flylab vault, both managed by Homelab. Tailscale runs in the container so
-Gatus can reach private services, registering an ephemeral `tag:fly` client on
-each start.
+Gatus can reach private services, registering an ephemeral `tag:ephemeral` client
+on each start.
 
 Homelab and Kubelab dispatch `deploy.yaml` after each validated push using the
 Actions secret `FLYLAB_DISPATCH_TOKEN`, a fine-grained token with only Actions
