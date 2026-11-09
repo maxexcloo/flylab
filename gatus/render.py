@@ -189,11 +189,7 @@ def provider_endpoints(providers, domain):
 
 def certificate_endpoints(certificate_inventory, machines, domain, probes):
     """Probe certificates no service probe reaches."""
-    hosts = {
-        entry["hostname"]
-        for entry in certificate_inventory
-        if entry["type"] == "certificate"
-    }
+    hosts = {entry["hostname"] for entry in certificate_inventory}
     for _, _, _, host, machine in monitored_machines(machines, domain):
         if not machine.get("cloudflare", {}).get("acme"):
             continue
