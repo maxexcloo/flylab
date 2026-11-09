@@ -1,54 +1,39 @@
 # Gatus
 
-External monitoring for my homelab, running on Fly.io at `status.excloo.com`.
-The [Images repository](https://github.com/maxexcloo/images) builds the shared
-Gatus/Tailscale base; Flylab adds the generated monitoring configuration and a
-startup script.
+External monitoring for my homelab at [status.excloo.com](https://status.excloo.com).
+The [Images repository](https://github.com/maxexcloo/images) owns the shared
+Gatus/Tailscale image.
 
 ## Inventory
 
-`render.py` writes `certificates.yaml`, `infrastructure.yaml`, `providers.yaml`
-and `services.yaml` to `app/config/`, where Gatus merges every `*.yaml`. Probes
-come from:
+Monitoring is configured in the source repositories:
 
-- Kubelab routes opt in with `monitoring.excloo.dev/enabled: "true"`, through
-  Kubelab's `scripts/render_service_inventory.sh`.
+- Kubelab routes opt in with `monitoring.excloo.dev/enabled: "true"`.
 - Homelab machine services opt in with `services.<name>.monitoring: true` in
   `data/machines.yaml`; typed machines get ICMP checks.
 - Homelab `data/providers.yaml` entries get provider probes unless they set
-  `monitoring: false`, plus DNS probes when they declare `dns`.
-- Certificates no service probe reaches get a `Certificate: <host>` probe, from
-  concrete dnsNames in Kubelab's cert-manager `Certificate` resources and from
-  HTTPS services on Homelab ACME machines that do not opt into monitoring.
+  `monitoring: false`. Entries declaring `dns` also get DNS probes.
 
-Service names and groups match Homepage. `settings.yaml` holds mail alerting,
-storage and UI settings. Gatus keeps its history in SQLite on the `gatus_data`
-Fly volume, which Flylab creates before deploying. The volume pins Gatus to one
-machine.
+Service names and groups match Homepage. Certificate coverage is derived from
+Kubelab certificates and Homelab ACME services by the [renderer](render.py).
+Gatus keeps its history in SQLite on a Fly volume, pinning it to one machine.
 
 ## Alerting
 
-`settings.yaml` emails after 10 consecutive failures and clears after 10
-consecutive successes. Reminders stay disabled, so a check that stays down
-alerts once. Response times must stay under 10 seconds. Provider probes also
-accept `429`, so rate limits do not alert.
-
-Every HTTPS probe checks certificate expiry with
-`[CERTIFICATE_EXPIRATION] > 168h`, including the certificate-only probes in
-`certificates.yaml`.
+Email alerting, storage and UI settings live in
+[`settings.yaml`](app/config/settings.yaml). Probe conditions, including
+certificate expiry checks, live in the [renderer](render.py).
 
 ## Credentials
 
 Kubelab routes can declare monitoring headers with
-`monitoring.excloo.dev/headers`. Kubelab resolves each Secret reference to a
-1Password reference; rendering adds it to `fnox.toml` under a hashed name, and
-Flylab imports it as a Fly secret. Routes behind a Kubelab Cloudflare Access application
-also send the `Cloudflare Access Service Token` item, which Homelab manages.
+`monitoring.excloo.dev/headers`, using Secret references backed by 1Password.
+Routes behind a Kubelab Cloudflare Access application use the
+`Cloudflare Access Service Token` item, which Homelab manages.
 
-`gatus/fnox.toml` references the `Resend` and `Tailscale OAuth Client` items in
-the Flylab vault, both managed by Homelab. Tailscale runs in the container so
-Gatus can reach private services, registering an ephemeral `tag:ephemeral` client
-on each start.
+[`fnox.toml`](fnox.toml) references the `Resend` and `Tailscale OAuth Client`
+items in the Flylab vault, both managed by Homelab. Tailscale lets Gatus reach
+private services.
 
 Homelab and Kubelab dispatch `deploy.yaml` after each validated push using the
 Actions secret `FLYLAB_DISPATCH_TOKEN`, a fine-grained token with only Actions
