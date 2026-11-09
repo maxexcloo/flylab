@@ -114,13 +114,18 @@ def main():
         subprocess.run(["flyctl", "apps", "create", app], check=True)
 
     digest = rendered_digest(deployment_path)
-    # Homelab and Kubelab dispatch after every push; skip runs that render nothing new.
-    if os.environ["FLYLAB_SKIP_UNCHANGED"] == "true" and {
-        machine["config"]["env"].get("FLYLAB_RENDER_DIGEST")
-        for machine in fly_json(["machines", "list"], app)
-    } == {digest}:
-        print(f"Rendered configuration {digest} is already deployed")
-        return
+    if os.environ["FLYLAB_SKIP_UNCHANGED"] == "true":
+        machines = fly_json(["machines", "list"], app)
+        # Fly stores the digest before deployment health checks have passed.
+        if machines and all(
+            machine["state"] == "started"
+            and machine.get("checks")
+            and all(check["status"] == "passing" for check in machine["checks"])
+            and machine["config"]["env"].get("FLYLAB_RENDER_DIGEST") == digest
+            for machine in machines
+        ):
+            print(f"Rendered configuration {digest} is already deployed and healthy")
+            return
 
     reconcile_certificates(app, deployment["certificates"])
     reconcile_secrets(app, deployment_path)
