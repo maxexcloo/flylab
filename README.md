@@ -5,24 +5,19 @@ service and infrastructure monitoring derived from Homelab and Kubelab.
 
 ## Credentials
 
-The only credential GitHub Actions stores is `OP_SERVICE_ACCOUNT_TOKEN`. With
-it, the workflow uses fnox to read the Fly deployment token declared in
-`fnox.toml` and the Gatus secrets declared in `gatus/fnox.toml`. Give the service
-account read-only access to the Flylab vault and the application vaults it
-needs. Keep the service account's recovery copy in `Homelab/Connect Token: fly`.
+Set `OP_SERVICE_ACCOUNT_TOKEN` in GitHub Actions with read-only access to the
+Flylab vault and the application vaults it needs. Keep the service account's
+recovery copy in `Homelab/Connect Token: fly`. Credential references live in
+[`fnox.toml`](fnox.toml) and [`gatus/fnox.toml`](gatus/fnox.toml).
 
 ## Deployment
 
-Pull requests check and render Gatus. Pushes to `main`, except Markdown-only
-changes, also deploy it: the workflow renders before resolving credentials,
-reconciles certificates from `gatus/deployment.toml` and secrets from the
-rendered `fnox.toml`, then runs `flyctl deploy`. Secret values go straight to Fly
-over standard input, and Fly secrets not declared there are removed.
+The [deployment workflow](.github/workflows/deploy.yaml) checks pull requests and
+deploys pushes to `main`, except Markdown-only changes. Deployment removes Fly
+secrets not declared in the rendered `fnox.toml`.
 
-Homelab and Kubelab dispatch the workflow with a revision after each push; those
-runs skip deploying when the rendered output matches the deployed digest. Pushes
-and manual runs without a revision always deploy, so run the workflow manually
-after rotating a secret.
+Run the workflow manually without revision inputs after rotating a secret to
+force deployment, even when the rendered configuration is unchanged.
 
 ## Development
 
