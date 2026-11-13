@@ -15,4 +15,4 @@
 ## Verification
 
 - `mise run check` checks repository files offline.
-- `mise run check:render` fetches public Homelab and Kubelab `main` and renders Gatus.
+- `mise run render` renders Gatus, which needs network access.

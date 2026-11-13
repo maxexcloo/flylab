@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-      group: deploy-${{ github.event.pull_request.number || 'main' }}
+      group: deploy-${{ github.ref }}
     env:
       FLYLAB_RENDER_DIRECTORY: /tmp/flylab-render
     steps:

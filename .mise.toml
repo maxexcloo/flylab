@@ -1,19 +1,10 @@
 [tools]
+# Kubelab's service inventory renderer runs flux and kubectl.
 flux2 = "latest"
 flyctl = "latest"
 kubectl = "latest"
 
 # Development
-[tasks."check:render"]
-description = "Render Gatus Without Resolving Secrets"
-run = '''
-set -eu
-FLYLAB_RENDER_DIRECTORY=$(mktemp -d)
-export FLYLAB_RENDER_DIRECTORY
-trap 'rm -fr -- "$FLYLAB_RENDER_DIRECTORY"' EXIT
-mise run render
-'''
-
 [tasks.render]
 description = "Render Gatus Without Resolving Secrets Or Deploying"
 run = '''

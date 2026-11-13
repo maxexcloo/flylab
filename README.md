@@ -25,7 +25,6 @@ before running local Mise tasks:
 ```shell
 mise install
 mise run check
-mise run check:render
 mise run render
 ```
 
