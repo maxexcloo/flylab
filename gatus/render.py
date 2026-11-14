@@ -55,26 +55,21 @@ def endpoints(inventory):
     ]
 
 
-def infrastructure_endpoints(machines, domain):
+def infrastructure_endpoints(machines):
     probes = []
-    for network, _, hostname, host, machine in monitored_machines(machines, domain):
-        if machine.get("type") is None:
+    for machine in machines.values():
+        if not machine["monitoring"] or machine["type"] is None:
             continue
         targets = {}
-        if machine.get("tailscale", {}).get("enabled", True):
-            targets["Internal"] = host
-        # Homelab publishes each public address as public.<machine FQDN>.
-        if (
-            machine.get("public_ipv4")
-            or machine.get("public_ipv6")
-            or machine.get("oci", {}).get("assign_public_ip")
-        ):
-            targets["External"] = f"public.{host}"
+        if machine["tailscale"]:
+            targets["Internal"] = machine["fqdn"]
+        if machine["public_fqdn"]:
+            targets["External"] = machine["public_fqdn"]
         for scope, target in targets.items():
             probes.append(
                 {
                     "group": "Servers",
-                    "name": f"{network}-{hostname}"
+                    "name": machine["location"]
                     + (" (External)" if scope == "External" else ""),
                     "url": f"icmp://{target}",
                     "alerts": [{"type": "email"}],
@@ -86,36 +81,19 @@ def infrastructure_endpoints(machines, domain):
     return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 
-def machine_service_inventory(machines, domain):
+def machine_service_inventory(machines, services):
     """Read explicit machine-service checks without importing dashboard configuration."""
-    entries = []
-    for network, name, hostname, host, machine in monitored_machines(machines, domain):
-        for service_name, service in machine.get("services", {}).items():
-            if not service.get("monitoring", False):
-                continue
-            scheme, port = service["scheme"], service["port"]
-            service_host = service.get("hostname", host)
-            suffix = (
-                "" if (scheme, port) in {("http", 80), ("https", 443)} else f":{port}"
-            )
-            entries.append(
-                {
-                    "group": service["group"],
-                    "location": f"{network}-{hostname}",
-                    "monitor": f"{scheme}://{service_host}{suffix}",
-                    "name": service.get("name", f"{name} {service_name}"),
-                    "type": "machine",
-                }
-            )
-    return entries
-
-
-def monitored_machines(machines, domain):
-    for network, hosts in sorted(machines.items()):
-        for name, machine in sorted(hosts.items()):
-            if machine.get("monitoring", True):
-                hostname = machine.get("hostname", name)
-                yield network, name, hostname, f"{hostname}.{network}.{domain}", machine
+    return [
+        {
+            "group": service["group"],
+            "location": machines[service["machine"]]["location"],
+            "monitor": service["url"],
+            "name": service["name"],
+            "type": "machine",
+        }
+        for service in services.values()
+        if service["monitoring"] and machines[service["machine"]]["monitoring"]
+    ]
 
 
 # Gatus reaches public routes through Cloudflare, so Access-protected ones need
@@ -147,15 +125,14 @@ def monitoring_credentials(inventory):
     return headers, secrets
 
 
-def provider_endpoints(providers, domain):
+def provider_endpoints(providers):
     probes = []
     for provider in providers.values():
-        name = provider["name"]
-        if provider.get("monitoring", True):
+        if provider["monitoring"]:
             probes.append(
                 {
                     "group": "Providers",
-                    "name": name,
+                    "name": provider["name"],
                     "url": provider["url"],
                     "alerts": [{"type": "email"}],
                     # Provider consoles may ask for sign-in; any answer means they are up.
@@ -170,10 +147,10 @@ def provider_endpoints(providers, domain):
             probes.append(
                 {
                     "group": "Providers",
-                    "name": resolver.get("name", f"{name} DNS"),
+                    "name": resolver["name"],
                     "url": resolver["url"],
                     "dns": {
-                        "query-name": resolver.get("query-name", domain),
+                        "query-name": resolver["query-name"],
                         "query-type": resolver["query-type"],
                     },
                     "alerts": [{"type": "email"}],
@@ -187,20 +164,21 @@ def provider_endpoints(providers, domain):
     return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 
-def certificate_endpoints(certificate_inventory, machines, domain, probes):
+def certificate_endpoints(certificate_inventory, machines, services, probes):
     """Probe certificates no service probe reaches."""
     hosts = {entry["hostname"] for entry in certificate_inventory}
-    for _, _, _, host, machine in monitored_machines(machines, domain):
-        if not machine.get("cloudflare", {}).get("acme"):
-            continue
+    for service in services.values():
+        machine = machines[service["machine"]]
+        url = urlsplit(service["url"])
         # ACME machines serve their certificate on each HTTPS service.
-        for service in machine.get("services", {}).values():
-            if service.get("scheme") != "https" or service.get("monitoring", False):
-                continue
-            if service.get("hostname", host) != host:
-                continue
-            port = service["port"]
-            hosts.add(host if port == 443 else f"{host}:{port}")
+        if (
+            machine["monitoring"]
+            and machine["acme"]
+            and not service["monitoring"]
+            and url.scheme == "https"
+            and url.hostname == machine["fqdn"]
+        ):
+            hosts.add(url.netloc)
     monitored = {probe["url"] for probe in probes}
     certificates = []
     for host in hosts:
@@ -227,7 +205,6 @@ def render(kubelab, homelab, output):
         subprocess.check_output(
             ["bash", "scripts/render_service_inventory.sh"],
             cwd=kubelab,
-            env=dict(os.environ, HOMELAB_DIRECTORY=str(homelab)),
             text=True,
         )
     )
@@ -236,13 +213,10 @@ def render(kubelab, homelab, output):
     ]
     inventory = [entry for entry in inventory if entry["type"] != "certificate"]
     headers, secrets = monitoring_credentials(inventory)
-    machines = yaml.safe_load((homelab / "data/machines.yaml").read_text())["machines"]
-    domains = yaml.safe_load((homelab / "data/domains.yaml").read_text())["domains"]
-    domain = domains["infrastructure"]
-    providers = yaml.safe_load((homelab / "data/providers.yaml").read_text())[
-        "providers"
-    ]
-    inventory.extend(machine_service_inventory(machines, domain))
+    homelab_inventory = json.loads((homelab / "inventory.json").read_text())
+    machines = homelab_inventory["machines"]
+    services = homelab_inventory["services"]
+    inventory.extend(machine_service_inventory(machines, services))
     deployment = tomllib.loads((Path(__file__).parent / "deployment.toml").read_text())
     inventory.extend(
         {
@@ -262,10 +236,10 @@ def render(kubelab, homelab, output):
             if "cf-access-client-id" in probe["headers"]:
                 probe["client"] = {"ignore-redirect": True}
     write_fnox_secrets(output / "fnox.toml", secrets)
-    infrastructure = infrastructure_endpoints(machines, domain)
-    providers = provider_endpoints(providers, domain)
+    infrastructure = infrastructure_endpoints(machines)
+    providers = provider_endpoints(homelab_inventory["providers"])
     certificates = certificate_endpoints(
-        certificate_inventory, machines, domain, probes + infrastructure + providers
+        certificate_inventory, machines, services, probes + infrastructure + providers
     )
     for name, entries in {
         "certificates": certificates,
