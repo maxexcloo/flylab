@@ -1,8 +1,6 @@
 # Gatus
 
 External monitoring for my homelab at [status.excloo.com](https://status.excloo.com).
-The [Images repository](https://github.com/maxexcloo/images) owns the shared
-Gatus/Tailscale image.
 
 ## Inventory
 
