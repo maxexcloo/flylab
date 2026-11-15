@@ -2,7 +2,7 @@
 FROM docker.io/twinproduction/gatus:v5.38.0 AS gatus
 FROM docker.io/tailscale/tailscale:v1.104.7 AS tailscale
 
-FROM alpine:3.24
+FROM alpine:3.24.4
 RUN apk add --no-cache ca-certificates iptables ip6tables \
     && mkdir -p /var/cache/tailscale /var/lib/tailscale /var/run/tailscale
 WORKDIR /app

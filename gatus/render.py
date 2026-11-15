@@ -1,12 +1,12 @@
 # /// script
 # dependencies = ["pyyaml"]
 # ///
-import argparse
 import hashlib
 import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import tomllib
 from contextlib import contextmanager
@@ -14,6 +14,49 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import yaml
+
+# Gatus reaches public routes through Cloudflare, so Access-protected ones need
+# Homelab's monitoring service token.
+CLOUDFLARE_ACCESS_HEADERS = {
+    "cf-access-client-id": "op://Flylab/Cloudflare Access Service Token/username",
+    "cf-access-client-secret": "op://Flylab/Cloudflare Access Service Token/password",
+}
+
+
+def certificate_endpoints(certificate_inventory, machines, services, probes):
+    """Probe certificates no service probe reaches."""
+    hosts = {entry["hostname"] for entry in certificate_inventory}
+    for service in services.values():
+        machine = machines[service["machine"]]
+        url = urlsplit(service["url"])
+        # ACME machines serve their certificate on each HTTPS service.
+        if (
+            machine["monitoring"]
+            and machine["acme"]
+            and not service["monitoring"]
+            and url.scheme == "https"
+            and url.hostname == machine["fqdn"]
+        ):
+            hosts.add(url.netloc)
+    monitored = {probe["url"] for probe in probes}
+    certificates = []
+    for host in hosts:
+        url = f"https://{host}"
+        if url in monitored:
+            continue
+        certificates.append(
+            {
+                "group": "Certificates",
+                "name": f"Certificate: {host}",
+                "url": url,
+                "alerts": [{"type": "email"}],
+                "conditions": [
+                    "[CERTIFICATE_EXPIRATION] > 168h",
+                    "[STATUS] == any(200, 301, 302, 401, 403)",
+                ],
+            }
+        )
+    return sorted(certificates, key=lambda probe: probe["name"].casefold())
 
 
 def endpoints(inventory):
@@ -82,7 +125,6 @@ def infrastructure_endpoints(machines):
 
 
 def machine_service_inventory(machines, services):
-    """Read explicit machine-service checks without importing dashboard configuration."""
     return [
         {
             "group": service["group"],
@@ -94,14 +136,6 @@ def machine_service_inventory(machines, services):
         for service in services.values()
         if service["monitoring"] and machines[service["machine"]]["monitoring"]
     ]
-
-
-# Gatus reaches public routes through Cloudflare, so Access-protected ones need
-# Homelab's monitoring service token.
-CLOUDFLARE_ACCESS_HEADERS = {
-    "cf-access-client-id": "op://Flylab/Cloudflare Access Service Token/username",
-    "cf-access-client-secret": "op://Flylab/Cloudflare Access Service Token/password",
-}
 
 
 def monitoring_credentials(inventory):
@@ -164,42 +198,6 @@ def provider_endpoints(providers):
     return sorted(probes, key=lambda probe: probe["name"].casefold())
 
 
-def certificate_endpoints(certificate_inventory, machines, services, probes):
-    """Probe certificates no service probe reaches."""
-    hosts = {entry["hostname"] for entry in certificate_inventory}
-    for service in services.values():
-        machine = machines[service["machine"]]
-        url = urlsplit(service["url"])
-        # ACME machines serve their certificate on each HTTPS service.
-        if (
-            machine["monitoring"]
-            and machine["acme"]
-            and not service["monitoring"]
-            and url.scheme == "https"
-            and url.hostname == machine["fqdn"]
-        ):
-            hosts.add(url.netloc)
-    monitored = {probe["url"] for probe in probes}
-    certificates = []
-    for host in hosts:
-        url = f"https://{host}"
-        if url in monitored:
-            continue
-        certificates.append(
-            {
-                "group": "Certificates",
-                "name": f"Certificate: {host}",
-                "url": url,
-                "alerts": [{"type": "email"}],
-                "conditions": [
-                    "[CERTIFICATE_EXPIRATION] > 168h",
-                    "[STATUS] == any(200, 301, 302, 401, 403)",
-                ],
-            }
-        )
-    return sorted(certificates, key=lambda probe: probe["name"].casefold())
-
-
 def render(kubelab, homelab, output):
     inventory = json.loads(
         subprocess.check_output(
@@ -217,16 +215,18 @@ def render(kubelab, homelab, output):
     machines = homelab_inventory["machines"]
     services = homelab_inventory["services"]
     inventory.extend(machine_service_inventory(machines, services))
-    deployment = tomllib.loads((Path(__file__).parent / "deployment.toml").read_text())
-    inventory.extend(
+    gatus = homelab_inventory["providers"]["gatus"]
+    (output / "deployment.toml").write_text(
+        f"certificates = {json.dumps([urlsplit(gatus['url']).hostname])}\n"
+    )
+    inventory.append(
         {
-            "group": "Operations",
+            "group": gatus["group"],
             "location": "fly",
-            "monitor": f"https://{hostname}",
-            "name": "Gatus",
+            "monitor": gatus["url"],
+            "name": gatus["name"],
             "type": "fly",
         }
-        for hostname in deployment["certificates"]
     )
     probes = endpoints(inventory)
     for probe in probes:
@@ -321,14 +321,11 @@ def write_fnox_secrets(path, secrets):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("output", type=Path)
-    args = parser.parse_args()
     with (
         source_repository("homelab") as homelab,
         source_repository("kubelab") as kubelab,
     ):
-        render(kubelab, homelab, args.output)
+        render(kubelab, homelab, Path(sys.argv[1]))
 
 
 if __name__ == "__main__":

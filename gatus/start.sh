@@ -10,4 +10,5 @@ gatus &
 gatus_pid=$!
 # Logging out removes the ephemeral node at once, so the next start can reuse the hostname.
 trap 'tailscale logout; kill "$gatus_pid"' INT TERM
+# The trap interrupts the first wait; the second collects Gatus's exit status.
 wait "$gatus_pid" || wait "$gatus_pid"
