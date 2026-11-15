@@ -28,8 +28,8 @@ mise run check
 mise run render
 ```
 
-Rendering doesn't resolve secrets or deploy. It prints its output directory, a
-new temporary directory unless `FLYLAB_RENDER_DIRECTORY` is set.
+Rendering prints its output directory, a new temporary directory unless
+`FLYLAB_RENDER_DIRECTORY` is set.
 
 ## Licence
 

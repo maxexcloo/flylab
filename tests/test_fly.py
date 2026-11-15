@@ -19,8 +19,10 @@ class DeploymentTests(unittest.TestCase):
     def test_only_skip_healthy_matching_deployments(self):
         with tempfile.TemporaryDirectory() as directory:
             deployment = Path(directory)
-            for name in ("deployment.toml", "fly.toml"):
-                (deployment / name).write_bytes((ROOT / "gatus" / name).read_bytes())
+            (deployment / "deployment.toml").write_text("certificates = []\n")
+            (deployment / "fly.toml").write_bytes(
+                (ROOT / "gatus/fly.toml").read_bytes()
+            )
             digest = fly.rendered_digest(deployment)
             healthy = {
                 "state": "started",
