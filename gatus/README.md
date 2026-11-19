@@ -34,5 +34,8 @@ HOMELAB_REVISION=<full-commit-sha> KUBELAB_REVISION=<full-commit-sha> mise run r
 HOMELAB_DIRECTORY=../homelab KUBELAB_DIRECTORY=../kubelab mise run render
 ```
 
+After editing Homelab source data, regenerate `inventory.json` in that checkout
+with `hk fix --no-stage --step inventory inventory.json` before rendering.
+
 Manual workflow runs accept the same revisions as `homelab_revision` and
 `kubelab_revision`.

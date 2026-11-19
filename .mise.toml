@@ -10,7 +10,8 @@ description = "Render Gatus Without Resolving Secrets Or Deploying"
 run = '''
 set -eu
 output=${FLYLAB_RENDER_DIRECTORY:-$(mktemp -d)}
-cp -R gatus/. "$output"
+mkdir -p "$output"
+cp -R gatus/app gatus/Dockerfile gatus/fly.toml gatus/fnox.toml gatus/start.sh "$output"
 uv run --script gatus/render.py "$output"
 echo "$output"
 '''
