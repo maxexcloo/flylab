@@ -8,11 +8,12 @@ Services opt in to monitoring in their source repositories:
 
 - Kubelab routes opt in with `monitoring.excloo.dev/enabled: "true"`. Routes
   keep their card with `monitoring.excloo.dev/alerts: "false"`.
-- Homelab machine services opt in with `services.<name>.monitoring: true` in
-  `data/machines.yaml`; typed machines get ICMP checks. A machine with
-  `monitoring: false` stays listed without alerts.
+- Homelab machine services are all listed. `services.<name>.monitoring: true`
+  enables their alerts. Typed machines get ICMP checks, and `monitoring: false`
+  on a machine keeps its checks but disables their alerts.
 - Homelab `data/providers.yaml` entries get provider probes unless they set
-  `monitoring: false`. Entries declaring `dns` also get DNS probes.
+  `monitoring: false`; Gatus itself is listed with the services. Entries
+  declaring `dns` also get DNS probes.
 
 ## Credentials
 

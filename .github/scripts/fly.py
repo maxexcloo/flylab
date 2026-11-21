@@ -14,24 +14,6 @@ def fly_json(arguments, app):
     return json.loads(result)
 
 
-def reconcile_certificates(app, desired):
-    current = {
-        certificate["hostname"] for certificate in fly_json(["certs", "list"], app)
-    }
-    desired = set(desired)
-
-    for hostname in sorted(current - desired):
-        subprocess.run(
-            ["flyctl", "certs", "remove", hostname, "--app", app, "--yes"],
-            check=True,
-        )
-    for hostname in sorted(desired - current):
-        subprocess.run(
-            ["flyctl", "certs", "add", hostname, "--app", app],
-            check=True,
-        )
-
-
 def reconcile_secrets(app, deployment_path):
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Resolve 1Password references only in GitHub Actions")
@@ -105,7 +87,6 @@ def main():
     deployment_path = Path(os.environ["FLYLAB_RENDER_DIRECTORY"])
     config = tomllib.loads((deployment_path / "fly.toml").read_text())
     app = config["app"]
-    deployment = tomllib.loads((deployment_path / "deployment.toml").read_text())
 
     apps = json.loads(
         subprocess.check_output(["flyctl", "apps", "list", "--json"], text=True)
@@ -127,7 +108,6 @@ def main():
             print(f"Rendered configuration {digest} is already deployed and healthy")
             return
 
-    reconcile_certificates(app, deployment["certificates"])
     reconcile_secrets(app, deployment_path)
     reconcile_volumes(app, config)
     # Deploy waits for native health checks; --ha=false keeps a new app to one machine.
