@@ -101,7 +101,7 @@ def endpoints(inventory):
 def infrastructure_endpoints(machines):
     probes = []
     for machine in machines.values():
-        if not machine["monitoring"] or machine["type"] is None:
+        if machine["type"] is None:
             continue
         targets = {}
         if machine["tailscale"]:
@@ -115,7 +115,7 @@ def infrastructure_endpoints(machines):
                     "name": machine["location"]
                     + (" (External)" if scope == "External" else ""),
                     "url": f"icmp://{target}",
-                    "alerts": [{"type": "email"}],
+                    "alerts": [{"type": "email"}] if machine["monitoring"] else [],
                     "conditions": ["[CONNECTED] == true", "[RESPONSE_TIME] < 10000"],
                 }
             )
@@ -127,6 +127,7 @@ def infrastructure_endpoints(machines):
 def machine_service_inventory(machines, services):
     return [
         {
+            "alerts": "true" if machines[service["machine"]]["monitoring"] else "false",
             "group": service["group"],
             "location": machines[service["machine"]]["location"],
             "monitor": service["url"],
