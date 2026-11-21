@@ -19,7 +19,6 @@ class DeploymentTests(unittest.TestCase):
     def test_only_skip_healthy_matching_deployments(self):
         with tempfile.TemporaryDirectory() as directory:
             deployment = Path(directory)
-            (deployment / "deployment.toml").write_text("certificates = []\n")
             (deployment / "fly.toml").write_bytes(
                 (ROOT / "gatus/fly.toml").read_bytes()
             )
@@ -74,7 +73,6 @@ class DeploymentTests(unittest.TestCase):
                         return_value=json.dumps([{"Name": "excloo-gatus"}]),
                     ),
                     patch.object(fly, "fly_json", return_value=machines),
-                    patch.object(fly, "reconcile_certificates"),
                     patch.object(fly, "reconcile_secrets"),
                     patch.object(fly, "reconcile_volumes"),
                     patch.object(fly.subprocess, "run") as run,

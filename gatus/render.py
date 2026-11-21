@@ -11,7 +11,6 @@ import tempfile
 import tomllib
 from contextlib import contextmanager
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import yaml
 
@@ -38,8 +37,6 @@ def endpoints(inventory):
         if f" ({location}" not in name:
             name += f" ({location})"
         conditions = ["[RESPONSE_TIME] < 10000", "[STATUS] == any(200, 401)"]
-        if urlsplit(url).scheme == "https":
-            conditions.insert(0, "[CERTIFICATE_EXPIRATION] > 168h")
         probe = {
             "group": group,
             "name": name,
@@ -91,15 +88,18 @@ def infrastructure_endpoints(machines):
 def machine_service_inventory(machines, services):
     return [
         {
-            "alerts": "true" if machines[service["machine"]]["monitoring"] else "false",
-            "group": service["group"],
+            "alerts": (
+                "true"
+                if machines[service["machine"]]["monitoring"] and service["monitoring"]
+                else "false"
+            ),
+            "group": service.get("group") or "Infrastructure",
             "location": machines[service["machine"]]["location"],
             "monitor": service["url"],
             "name": service["name"],
             "type": "machine",
         }
         for service in services.values()
-        if service["monitoring"]
     ]
 
 
@@ -177,11 +177,9 @@ def render(kubelab, homelab, output):
     services = homelab_inventory["services"]
     inventory.extend(machine_service_inventory(machines, services))
     gatus = homelab_inventory["providers"]["gatus"]
-    (output / "deployment.toml").write_text(
-        f"certificates = {json.dumps([urlsplit(gatus['url']).hostname])}\n"
-    )
     inventory.append(
         {
+            "alerts": "true" if gatus["monitoring"] else "false",
             "group": gatus["group"],
             "location": "fly",
             "monitor": gatus["url"],
