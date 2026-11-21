@@ -6,9 +6,11 @@ External monitoring for my homelab at [status.excloo.com](https://status.excloo.
 
 Services opt in to monitoring in their source repositories:
 
-- Kubelab routes opt in with `monitoring.excloo.dev/enabled: "true"`.
+- Kubelab routes opt in with `monitoring.excloo.dev/enabled: "true"`. Routes
+  keep their card with `monitoring.excloo.dev/alerts: "false"`.
 - Homelab machine services opt in with `services.<name>.monitoring: true` in
-  `data/machines.yaml`; typed machines get ICMP checks.
+  `data/machines.yaml`; typed machines get ICMP checks. A machine with
+  `monitoring: false` stays listed without alerts.
 - Homelab `data/providers.yaml` entries get provider probes unless they set
   `monitoring: false`. Entries declaring `dns` also get DNS probes.
 
