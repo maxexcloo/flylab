@@ -23,42 +23,6 @@ CLOUDFLARE_ACCESS_HEADERS = {
 }
 
 
-def certificate_endpoints(certificate_inventory, machines, services, probes):
-    """Probe certificates no service probe reaches."""
-    hosts = {entry["hostname"] for entry in certificate_inventory}
-    for service in services.values():
-        machine = machines[service["machine"]]
-        url = urlsplit(service["url"])
-        # ACME machines serve their certificate on each HTTPS service.
-        if (
-            machine["monitoring"]
-            and machine["acme"]
-            and not service["monitoring"]
-            and url.scheme == "https"
-            and url.hostname == machine["fqdn"]
-        ):
-            hosts.add(url.netloc)
-    monitored = {probe["url"] for probe in probes}
-    certificates = []
-    for host in hosts:
-        url = f"https://{host}"
-        if url in monitored:
-            continue
-        certificates.append(
-            {
-                "group": "Certificates",
-                "name": f"Certificate: {host}",
-                "url": url,
-                "alerts": [{"type": "email"}],
-                "conditions": [
-                    "[CERTIFICATE_EXPIRATION] > 168h",
-                    "[STATUS] == any(200, 301, 302, 401, 403)",
-                ],
-            }
-        )
-    return sorted(certificates, key=lambda probe: probe["name"].casefold())
-
-
 def endpoints(inventory):
     if not any(entry["type"] == "route" for entry in inventory):
         raise ValueError("Expected a non-empty route inventory")
@@ -70,7 +34,7 @@ def endpoints(inventory):
         name = entry["name"]
         location = entry["cluster"] if entry["type"] == "route" else entry["location"]
         # Match the location tag Homepage shows on the card; per-node routes carry
-        # `(<cluster>/<node>)` already.
+        # `(<cluster>-<node>)` already.
         if f" ({location}" not in name:
             name += f" ({location})"
         conditions = ["[RESPONSE_TIME] < 10000", "[STATUS] == any(200, 401)"]
@@ -135,7 +99,7 @@ def machine_service_inventory(machines, services):
             "type": "machine",
         }
         for service in services.values()
-        if service["monitoring"] and machines[service["machine"]]["monitoring"]
+        if service["monitoring"]
     ]
 
 
@@ -207,10 +171,6 @@ def render(kubelab, homelab, output):
             text=True,
         )
     )
-    certificate_inventory = [
-        entry for entry in inventory if entry["type"] == "certificate"
-    ]
-    inventory = [entry for entry in inventory if entry["type"] != "certificate"]
     headers, secrets = monitoring_credentials(inventory)
     homelab_inventory = json.loads((homelab / "inventory.json").read_text())
     machines = homelab_inventory["machines"]
@@ -239,11 +199,7 @@ def render(kubelab, homelab, output):
     write_fnox_secrets(output / "fnox.toml", secrets)
     infrastructure = infrastructure_endpoints(machines)
     providers = provider_endpoints(homelab_inventory["providers"])
-    certificates = certificate_endpoints(
-        certificate_inventory, machines, services, probes + infrastructure + providers
-    )
     for name, entries in {
-        "certificates": certificates,
         "infrastructure": infrastructure,
         "providers": providers,
         "services": probes,
@@ -252,8 +208,8 @@ def render(kubelab, homelab, output):
             yaml.safe_dump({"endpoints": entries}, sort_keys=False)
         )
     print(
-        f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure, "
-        f"{len(providers)} provider and {len(certificates)} certificate probes"
+        f"Rendered {len(probes)} service, {len(infrastructure)} infrastructure "
+        f"and {len(providers)} provider probes"
     )
 
 
