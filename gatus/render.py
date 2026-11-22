@@ -36,7 +36,10 @@ def endpoints(inventory):
         # `(<cluster>-<node>)` already.
         if f" ({location}" not in name:
             name += f" ({location})"
-        conditions = ["[RESPONSE_TIME] < 10000", "[STATUS] == any(200, 401)"]
+        status = entry.get("expected_status", "any(200, 401)")
+        conditions = ["[RESPONSE_TIME] < 10000", f"[STATUS] == {status}"]
+        if body_pattern := entry.get("expected_body"):
+            conditions.append(f"[BODY] == pat({body_pattern})")
         probe = {
             "group": group,
             "name": name,
@@ -88,6 +91,7 @@ def infrastructure_endpoints(machines):
 def machine_service_inventory(machines, services):
     return [
         {
+            **service.get("probe", {}),
             "alerts": (
                 "true"
                 if machines[service["machine"]]["monitoring"] and service["monitoring"]
