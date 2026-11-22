@@ -6,6 +6,12 @@ timeout 15 sh -c 'until [ -S /var/run/tailscale/tailscaled.sock ]; do sleep 0.1;
 printf '%s' "${TAILSCALE_OAUTH_CLIENT_SECRET}?ephemeral=true&preauthorized=true" |
   tailscale up --accept-dns=false --accept-routes=false --advertise-tags=tag:monitoring --auth-key=file:/dev/stdin --hostname=gatus --timeout=60s
 unset TAILSCALE_OAUTH_CLIENT_SECRET
+# Keep the service hostname for TLS while reaching its device over the tailnet.
+while read -r machine hostname; do
+  if address=$(tailscale ip -4 "$machine"); then
+    printf '%s %s\n' "$address" "$hostname"
+  fi
+done < /app/tailnet-hosts >> /etc/hosts
 gatus &
 gatus_pid=$!
 # Logging out removes the ephemeral node at once, so the next start can reuse the hostname.
