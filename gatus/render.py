@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -25,17 +26,20 @@ CLOUDFLARE_ACCESS_HEADERS = {
 def endpoints(inventory):
     if not any(entry["type"] == "route" for entry in inventory):
         raise ValueError("Expected a non-empty route inventory")
-    probes = {}
-    urls = {}
+    by_url = {}
     for entry in inventory:
         url = entry["monitor"]
         group = entry["group"]
         name = entry["name"]
-        location = entry["cluster"] if entry["type"] == "route" else entry["location"]
-        # Match the location tag Homepage shows on the card; per-node routes carry
-        # `(<cluster>-<node>)` already.
-        if f" ({location}" not in name:
-            name += f" ({location})"
+        if entry["type"] == "route":
+            location = entry["cluster"]
+            if placement := re.search(rf" \(({re.escape(location)}-[^\s()]+)\)", name):
+                location = placement[1]
+                name = name[: placement.start()] + name[placement.end() :]
+        else:
+            location = entry["location"]
+            if entry["type"] == "machine":
+                name = name.removesuffix(f" ({entry['host_name']})")
         status = entry.get("expected_status", "any(200, 401)")
         conditions = ["[RESPONSE_TIME] < 10000", f"[STATUS] == {status}"]
         if body_pattern := entry.get("expected_body"):
@@ -47,13 +51,20 @@ def endpoints(inventory):
             "alerts": [] if entry.get("alerts") == "false" else [{"type": "email"}],
             "conditions": conditions,
         }
-        identity = (group, name)
-        if identity in probes and probes[identity] != probe:
-            raise ValueError(f"Conflicting endpoint: {identity}")
-        if url in urls and urls[url] != identity:
+        if url in by_url and by_url[url] != (probe, location):
             raise ValueError(f"Conflicting monitoring URL: {url}")
+        by_url[url] = (probe, location)
+
+    counts = Counter((probe["group"], probe["name"]) for probe, _ in by_url.values())
+    probes = {}
+    for probe, location in by_url.values():
+        group, name = probe["group"], probe["name"]
+        if counts[group, name] > 1:
+            probe["name"] = f"{name} ({location})"
+        identity = (group, probe["name"])
+        if identity in probes:
+            raise ValueError(f"Conflicting endpoint: {identity}")
         probes[identity] = probe
-        urls[url] = identity
     return [
         probes[key]
         for key in sorted(
@@ -98,6 +109,7 @@ def machine_service_inventory(machines, services):
                 else "false"
             ),
             "group": service.get("group") or "Infrastructure",
+            "host_name": machines[service["machine"]]["name"],
             "location": machines[service["machine"]]["location"],
             "monitor": service["url"],
             "name": service["name"],
