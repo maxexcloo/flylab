@@ -51,6 +51,8 @@ def endpoints(inventory):
             "alerts": [] if entry.get("alerts") == "false" else [{"type": "email"}],
             "conditions": conditions,
         }
+        if entry.get("dns_tailscale"):
+            probe["client"] = {"dns-resolver": "udp://100.100.100.100:53"}
         if url in by_url and by_url[url] != (probe, location):
             raise ValueError(f"Conflicting monitoring URL: {url}")
         by_url[url] = (probe, location)
@@ -108,6 +110,7 @@ def machine_service_inventory(machines, services):
                 if machines[service["machine"]]["monitoring"] and service["monitoring"]
                 else "false"
             ),
+            "dns_tailscale": service.get("dns_tailscale", False),
             "group": service.get("group") or "Infrastructure",
             "host_name": machines[service["machine"]]["name"],
             "location": machines[service["machine"]]["location"],
@@ -209,7 +212,7 @@ def render(kubelab, homelab, output):
             probe["headers"] = headers[probe["url"]]
             # A rejected token redirects to the Access login page, which would pass.
             if "cf-access-client-id" in probe["headers"]:
-                probe["client"] = {"ignore-redirect": True}
+                probe.setdefault("client", {})["ignore-redirect"] = True
     write_fnox_secrets(output / "fnox.toml", secrets)
     infrastructure = infrastructure_endpoints(machines)
     providers = provider_endpoints(homelab_inventory["providers"])
