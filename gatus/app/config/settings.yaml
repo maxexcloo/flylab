@@ -23,13 +23,14 @@ ui:
     .grid > .endpoint:last-child { border-bottom-width: 0; }
     .endpoint .endpoint-header { padding: 0.5rem 1rem 0; }
     .endpoint .endpoint-header > div { align-items: center; }
+    .endpoint .endpoint-header .text-muted-foreground > :not(:last-child) { flex-shrink: 0; }
     .endpoint-group-content .endpoint-header .text-muted-foreground > :nth-child(-n+2) { display: none; }
     .endpoint .endpoint-content { padding: 0.25rem 1rem 0.5rem; }
     .endpoint .endpoint-content .rounded-sm { height: 1rem; }
     .endpoint .endpoint-content .mt-1 { display: none; }
     @media (min-width: 768px) {
       .grid > .endpoint { flex-direction: row; align-items: center; }
-      .endpoint .endpoint-header { flex: 0 0 35%; padding: 0.5rem 1rem; }
+      .endpoint .endpoint-header { flex: 0 0 35%; min-width: 0; padding: 0.5rem 1rem; }
       .endpoint .endpoint-content { padding: 0.5rem 1rem; }
     }
     .endpoint-group-content:has(.endpoint) { padding: 0; }
