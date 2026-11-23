@@ -9,8 +9,13 @@ kubectl = "latest"
 description = "Render Gatus Without Resolving Secrets Or Deploying"
 run = '''
 set -eu
-output=${FLYLAB_RENDER_DIRECTORY:-$(mktemp -d)}
-mkdir -p "$output"
+if [ -n "${FLYLAB_RENDER_DIRECTORY:-}" ]; then
+  output=$FLYLAB_RENDER_DIRECTORY
+  mkdir -p -- "$(dirname -- "$output")"
+  mkdir -- "$output"
+else
+  output=$(mktemp -d)
+fi
 cp -R gatus/app gatus/Dockerfile gatus/fly.toml gatus/fnox.toml gatus/start.sh "$output"
 uv run --script gatus/render.py "$output"
 echo "$output"
