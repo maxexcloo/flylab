@@ -28,8 +28,8 @@ mise run check
 mise run render
 ```
 
-Rendering prints its output directory, a new temporary directory unless
-`FLYLAB_RENDER_DIRECTORY` is set.
+Rendering prints its output directory. Set `FLYLAB_RENDER_DIRECTORY` to an
+unused path to choose where the task creates it.
 
 ## Licence
 
