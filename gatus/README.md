@@ -22,9 +22,10 @@ Kubelab routes can declare monitoring headers with
 Routes behind a Kubelab Cloudflare Access application use the
 `Cloudflare Access Service Token` item, which Homelab manages.
 
-Homelab and Kubelab dispatch `deploy.yaml` after each validated push using the
-Actions secret `FLYLAB_DISPATCH_TOKEN`, a fine-grained token with only Actions
-write access to `maxexcloo/flylab`; update both repositories when rotating it.
+Homelab dispatches `deploy.yaml` after each validated push. Kubelab dispatches
+after a validated push changes the rendered monitoring inventory. Both use the
+`FLYLAB_DISPATCH_TOKEN` Actions secret, a fine-grained token with Actions write
+access to `maxexcloo/flylab`. Update both repositories when rotating it.
 
 ## Rendering
 
